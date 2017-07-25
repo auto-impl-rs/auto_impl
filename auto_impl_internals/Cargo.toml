@@ -1,0 +1,8 @@
+[package]
+name = "auto_impl_internals"
+version = "0.1.0"
+authors = ["Ashley Mannix <ashleymannix@live.com.au>"]
+
+[dependencies]
+quote = "*"
+syn = { version = "*", features = ["full"] }

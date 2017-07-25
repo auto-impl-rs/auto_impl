@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "auto_impl",
+    "auto_impl_internals"
+]
