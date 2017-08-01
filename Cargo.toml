@@ -17,5 +17,5 @@ travis-ci = { repository = "KodrAus/auto_impl" }
 proc-macro = true
 
 [dependencies]
-quote = "*"
-syn = { version = "*", features = ["full"] }
+quote = "~0.3"
+syn = { version = "~0.11", features = ["full"] }
