@@ -158,7 +158,7 @@ mod tests {
 
         let impls = parse_impl_types(input).unwrap_err();
 
-        assert_eq!("expected a list containing any of `Arc`, `Box`, `Fn`, `FnMut` or `FnOnce`", &impls);
+        assert_eq!("expected a list containing any of `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`", &impls);
     }
 
     #[test]
