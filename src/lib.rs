@@ -8,25 +8,6 @@ include!("lib.proc_macro.rs");
 extern crate quote;
 extern crate syn;
 
-macro_rules! try_iter {
-    ($vec_expr:expr) => ({
-        let v: Vec<_> = $vec_expr.collect();
-
-        if let Some(err) = v.iter().find(|res| res.is_err()) {
-            match *err {
-                Err(ref err) => Err(err.clone())?,
-                _ => unreachable!()
-            }
-        }
-
-        let v: Vec<_> = v.into_iter()
-            .filter_map(Result::ok)
-            .collect();
-        
-        v
-    })
-}
-
 mod model;
 mod impl_as_ref;
 mod impl_fn;
@@ -80,9 +61,7 @@ fn parse_impl_types(tokens: Tokens) -> Result<Vec<ImplForTrait>, String> {
         _ => Err(IMPL_FOR_TRAIT_ERR)?
     };
 
-    let idents = try_iter!(idents.into_iter());
-
-    Ok(idents)
+    idents.into_iter().collect()
 }
 
 fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<Tokens, String> {
