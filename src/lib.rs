@@ -1,4 +1,8 @@
 #![recursion_limit="128"]
+#![cfg_attr(not(test), feature(proc_macro))]
+
+#[cfg(not(test))]
+include!("lib.proc_macro.rs");
 
 #[macro_use]
 extern crate quote;
@@ -31,11 +35,12 @@ use std::str::FromStr;
 use quote::Tokens;
 use model::*;
 
-const IMPL_FOR_TRAIT_ERR: &'static str = "expected a list containing any of `Arc`, `Box`, `Fn`, `FnMut` or `FnOnce`";
+const IMPL_FOR_TRAIT_ERR: &'static str = "expected a list containing any of `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`";
 
 #[derive(Debug, PartialEq)]
-pub enum ImplForTrait {
+enum ImplForTrait {
     Arc,
+    Rc,
     Box,
     Fn,
     FnMut,
@@ -48,6 +53,7 @@ impl FromStr for ImplForTrait {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Arc" => Ok(ImplForTrait::Arc),
+            "Rc" => Ok(ImplForTrait::Rc),
             "Box" => Ok(ImplForTrait::Box),
             "Fn" => Ok(ImplForTrait::Fn),
             "FnMut" => Ok(ImplForTrait::FnMut),
@@ -57,7 +63,7 @@ impl FromStr for ImplForTrait {
     }
 }
 
-pub fn parse_impl_types(tokens: Tokens) -> Result<Vec<ImplForTrait>, String> {
+fn parse_impl_types(tokens: Tokens) -> Result<Vec<ImplForTrait>, String> {
     let attr = syn::parse_outer_attr(tokens.as_ref())?;
 
     let idents: Vec<Result<ImplForTrait, String>> = match attr.value {
@@ -79,7 +85,7 @@ pub fn parse_impl_types(tokens: Tokens) -> Result<Vec<ImplForTrait>, String> {
     Ok(idents)
 }
 
-pub fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<Tokens, String> {
+fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<Tokens, String> {
     let item = syn::parse_item(tokens.as_ref())?;
     let auto_impl = AutoImpl::try_parse(item)?;
 
@@ -87,6 +93,7 @@ pub fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Res
         .map(|impl_for_trait| {
             match *impl_for_trait {
                 ImplForTrait::Arc => impl_as_ref::build(&auto_impl, Trait::new("Arc", quote!(::std::sync::Arc))),
+                ImplForTrait::Rc => impl_as_ref::build(&auto_impl, Trait::new("Rc", quote!(::std::rc::Rc))),
                 ImplForTrait::Box => impl_as_ref::build(&auto_impl, Trait::new("Box", quote!(Box))),
                 ImplForTrait::Fn => impl_fn::build(&auto_impl, Trait::new("Fn", quote!(Fn))),
                 ImplForTrait::FnMut => impl_fn::build(&auto_impl, Trait::new("FnMut", quote!(FnMut))),
@@ -261,15 +268,15 @@ mod tests {
             /// Some docs.
             pub trait ItWorks {
                 /// Some docs.
-                fn method(&self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+                fn method(&self, arg1: i32, arg2: Option<String>) -> Result<&'static str, String>;
             }
         );
 
         let derive = quote!(
             impl<TFn> ItWorks for TFn
-                where TFn: Fn(i32, Option<String>) -> Result<(), String>
+                where TFn: Fn(i32, Option<String>) -> Result<&'static str, String>
             {
-                fn method(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                fn method(&self, arg1: i32, arg2: Option<String>) -> Result<&'static str, String> {
                     self(arg1, arg2)
                 }
             }
@@ -284,17 +291,17 @@ mod tests {
             /// Some docs.
             pub trait ItWorks<'a, T, U> where U: AsRef<[u8]> {
                 /// Some docs.
-                fn method(&'a self, arg1: i32, arg2: U) -> Result<T, String>;
+                fn method<'b>(&'a self, arg1: i32, arg2: &'b U, arg3: &'static str) -> Result<T, String>;
             }
         );
 
         let derive = quote!(
             impl<'a, T, U, TFn> ItWorks<'a, T, U> for TFn
-                where TFn: Fn(i32, U) -> Result<T, String>,
+                where TFn: Fn(i32, &U, &'static str) -> Result<T, String>,
                       U: AsRef<[u8]>
             {
-                fn method(&'a self, arg1: i32, arg2: U) -> Result<T, String> {
-                    self(arg1, arg2)
+                fn method<'b>(&'a self, arg1: i32, arg2: &'b U, arg3: &'static str) -> Result<T, String> {
+                    self(arg1, arg2, arg3)
                 }
             }
         );
@@ -377,6 +384,28 @@ mod tests {
         );
 
         assert_invalid(&[ImplForTrait::Fn], input, "auto impl for `Fn` is not supported for associated types");
+    }
+
+    #[test]
+    fn invalid_fn_lifetime_in_return_type_path() {
+        let input = quote!(
+            pub trait ItWorks {
+                fn method<'a>(&'a self) -> Result<Option<&'a str>, String>;
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::Fn], input, "auto impl for `Fn` is not supported for non-static lifetimes in return types");
+    }
+
+    #[test]
+    fn invalid_fn_lifetime_in_return_type_tuple() {
+        let input = quote!(
+            pub trait ItWorks {
+                fn method<'a>(&'a self) -> Result<(&'a str, i32), String>;
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::Fn], input, "auto impl for `Fn` is not supported for non-static lifetimes in return types");
     }
 
     #[test]

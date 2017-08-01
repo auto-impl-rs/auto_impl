@@ -174,6 +174,26 @@ impl AutoImplMethod {
 
         (self.item_impl_factory)(block)
     }
+
+    pub fn anonymous_arg_lifetimes(&self) -> Vec<syn::Ty> {
+        self.arg_tys.iter()
+            .map(|ty| {
+                match *ty {
+                    syn::Ty::Rptr(ref lifetime, ref ty) => {
+                        let ty = ty.clone();
+
+                        let lifetime = match lifetime {
+                            &Some(ref l) if l.ident.as_ref() == "'static" => lifetime.to_owned(),
+                            _ => None
+                        };
+                        
+                        syn::Ty::Rptr(lifetime, ty)
+                    },
+                    ref ty @ _ => ty.clone()
+                }
+            })
+            .collect()
+    }
 }
 
 impl AutoImplAssociatedType {
