@@ -1,6 +1,6 @@
-# `auto_impl`
+# `auto_impl` [![Build Status](https://travis-ci.org/KodrAus/auto_impl.svg?branch=master)](https://travis-ci.org/KodrAus/auto_impl)
 
-This library is a simple compiler plugin for automatically implementing a trait for some common smart pointers and closures.
+A simple compiler plugin for automatically implementing a trait for some common smart pointers and closures.
 
 # Usage
 
