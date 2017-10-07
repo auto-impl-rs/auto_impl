@@ -107,6 +107,7 @@ There are a few restrictions on `#[auto_impl]` for smart pointers. The trait mus
 ## Implement a trait for a closure
 
 ```rust
+#[auto_impl(Fn)]
 trait FnTrait2<'a, T> {
     fn execute<'b>(&'a self, arg1: &'b T, arg2: &'static str) -> Result<(), String>;
 }
