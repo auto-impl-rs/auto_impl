@@ -30,6 +30,8 @@ The following types are supported:
 - [`Fn`](https://doc.rust-lang.org/std/ops/trait.Fn.html)
 - [`FnMut`](https://doc.rust-lang.org/std/ops/trait.FnMut.html)
 - [`FnOnce`](https://doc.rust-lang.org/std/ops/trait.FnOnce.html)
+- `&`
+- `&mut`
 
 ## Implement a trait for a smart pointer
 
@@ -108,7 +110,7 @@ There are a few restrictions on `#[auto_impl]` for smart pointers. The trait mus
 
 ```rust
 #[auto_impl(Fn)]
-trait FnTrait2<'a, T> {
+trait MyTrait<'a, T> {
     fn execute<'b>(&'a self, arg1: &'b T, arg2: &'static str) -> Result<(), String>;
 }
 ```
@@ -116,8 +118,8 @@ trait FnTrait2<'a, T> {
 Will expand to:
 
 ```rust
-impl<'a, T, TFn> FnTrait2<'a, T> for TFn
-    where TFn: Fn(&T, &'static str) -> Result<(), String>
+impl<'a, T, TAutoImpl> MyTrait<'a, T> for TAutoImpl
+    where TAutoImpl: Fn(&T, &'static str) -> Result<(), String>
 {
     fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
         self(arg1, arg2)
@@ -130,3 +132,34 @@ There are a few restrictions on `#[auto_impl]` for closures. The trait must:
 - Have a single method
 - Have no associated types
 - Have no non-static lifetimes in the return type
+
+## Implement a trait for a borrowed reference
+
+```rust
+#[auto_impl(&, &mut)]
+trait MyTrait<'a, T> {
+    fn execute<'b>(&'a self, arg1: &'b T, arg2: &'static str) -> Result<(), String>;
+}
+```
+
+Will expand to:
+
+```rust
+impl<'auto, 'a, T, TAutoImpl> MyTrait<'a, T> for &'auto TAutoImpl {
+    fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
+        (**self).execute(arg1, arg2)
+    }
+}
+
+impl<'auto, 'a, T, TAutoImpl> MyTrait<'a, T> for &'auto mut TAutoImpl {
+    fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
+        (**self).execute(arg1, arg2)
+    }
+}
+```
+
+There are a few restrictions on `#[auto_impl]` for immutably borrowed references. The trait must:
+
+- Only have methods that take `&self`
+
+There are no restrictions on `#[auto_impl]` for mutably borrowed references.
