@@ -19,7 +19,7 @@ trait FnTrait3 {
     fn execute(&mut self);
 }
 
-#[auto_impl(Arc, Box, Rc)]
+#[auto_impl(Arc, Box, Rc, &, &mut)]
 trait RefTrait1<'a, T: for<'b> Into<&'b str>> {
     type Type1;
     type Type2;

@@ -8,6 +8,7 @@ include!("lib.proc_macro.rs");
 extern crate quote;
 extern crate syn;
 
+mod parse;
 mod model;
 mod impl_as_ref;
 mod impl_fn;
@@ -16,7 +17,7 @@ use std::str::FromStr;
 use quote::Tokens;
 use model::*;
 
-const IMPL_FOR_TRAIT_ERR: &'static str = "expected a list containing any of `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`";
+const IMPL_FOR_TRAIT_ERR: &'static str = "expected a list containing any of `&`, `&mut`, `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`";
 
 #[derive(Debug, PartialEq)]
 enum ImplForTrait {
@@ -26,6 +27,8 @@ enum ImplForTrait {
     Fn,
     FnMut,
     FnOnce,
+    Ref,
+    RefMut,
 }
 
 impl FromStr for ImplForTrait {
@@ -39,29 +42,21 @@ impl FromStr for ImplForTrait {
             "Fn" => Ok(ImplForTrait::Fn),
             "FnMut" => Ok(ImplForTrait::FnMut),
             "FnOnce" => Ok(ImplForTrait::FnOnce),
-            _ => Err(IMPL_FOR_TRAIT_ERR)?
+            "&" => Ok(ImplForTrait::Ref),
+            "&mut" => Ok(ImplForTrait::RefMut),
+            c => {
+                println!("got: {}", c);
+                Err(IMPL_FOR_TRAIT_ERR)?
+            }
         }
     }
 }
 
 fn parse_impl_types(tokens: Tokens) -> Result<Vec<ImplForTrait>, String> {
-    let attr = syn::parse_outer_attr(tokens.as_ref())?;
-
-    let idents: Vec<Result<ImplForTrait, String>> = match attr.value {
-        syn::MetaItem::Word(ident) => vec![ImplForTrait::from_str(ident.as_ref())],
-        syn::MetaItem::List(_, idents) => {
-            idents.into_iter().map(|ident| {
-                match ident {
-                    syn::NestedMetaItem::MetaItem(syn::MetaItem::Word(ident)) => ImplForTrait::from_str(ident.as_ref()),
-                    _ => Err(IMPL_FOR_TRAIT_ERR)?
-                }
-            })
-            .collect()
-        },
-        _ => Err(IMPL_FOR_TRAIT_ERR)?
-    };
-
-    idents.into_iter().collect()
+    parse::attr(tokens.as_str())?
+        .into_iter()
+        .map(|ident| ImplForTrait::from_str(&ident))
+        .collect()
 }
 
 fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<Tokens, String> {
@@ -71,9 +66,11 @@ fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<
     let impls: Vec<_> = impl_for_traits.iter()
         .map(|impl_for_trait| {
             match *impl_for_trait {
-                ImplForTrait::Arc => impl_as_ref::build(&auto_impl, Trait::new("Arc", quote!(::std::sync::Arc))),
-                ImplForTrait::Rc => impl_as_ref::build(&auto_impl, Trait::new("Rc", quote!(::std::rc::Rc))),
-                ImplForTrait::Box => impl_as_ref::build(&auto_impl, Trait::new("Box", quote!(Box))),
+                ImplForTrait::Arc => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Arc", quote!(::std::sync::Arc))),
+                ImplForTrait::Rc => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Rc", quote!(::std::rc::Rc))),
+                ImplForTrait::Box => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Box", quote!(Box))),
+                ImplForTrait::Ref => impl_as_ref::build_immutable(&auto_impl),
+                ImplForTrait::RefMut => impl_as_ref::build_mutable(&auto_impl),
                 ImplForTrait::Fn => impl_fn::build(&auto_impl, Trait::new("Fn", quote!(Fn))),
                 ImplForTrait::FnMut => impl_fn::build(&auto_impl, Trait::new("FnMut", quote!(FnMut))),
                 ImplForTrait::FnOnce => impl_fn::build(&auto_impl, Trait::new("FnOnce", quote!(FnOnce)))
@@ -137,7 +134,34 @@ mod tests {
 
         let impls = parse_impl_types(input).unwrap_err();
 
-        assert_eq!("expected a list containing any of `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`", &impls);
+        assert_eq!("expected a list containing any of `&`, `&mut`, `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`", &impls);
+    }
+
+    #[test]
+    fn parse_attr_single() {
+        let input = quote!(#[auto_impl(&)]);
+        let impl_types = parse_impl_types(input).unwrap();
+
+        let expected = vec![ImplForTrait::Ref];
+
+        assert_eq!(impl_types, expected);
+    }
+
+    #[test]
+    fn parse_attr_multi() {
+        let input = quote!(#[auto_impl(&, &mut, Arc)]);
+
+        println!("{}", input);
+
+        let impl_types = parse_impl_types(input).unwrap();
+
+        let expected = vec![
+            ImplForTrait::Ref,
+            ImplForTrait::RefMut,
+            ImplForTrait::Arc,
+        ];
+
+        assert_eq!(impl_types, expected);
     }
 
     #[test]
@@ -239,6 +263,49 @@ mod tests {
         );
 
         assert_invalid(&[ImplForTrait::Arc], input, "auto impl for `Arc` is only supported for methods with a `&self` reciever");
+    }
+
+    #[test]
+    fn impl_ref() {
+        let input = quote!(
+            /// Some docs.
+            pub trait ItWorks {
+                /// Some docs.
+                fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+            }
+        );
+
+        let derive = quote!(
+            impl<'auto, TAutoImpl> ItWorks for &'auto TAutoImpl
+                where TAutoImpl: ItWorks
+            {
+                fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                    (**self).method1(arg1, arg2)
+                }
+            }
+
+            impl<'auto, TAutoImpl> ItWorks for &'auto mut TAutoImpl
+                where TAutoImpl: ItWorks
+            {
+                fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                    (**self).method1(arg1, arg2)
+                }
+            }
+        );
+
+        assert_tokens(&[ImplForTrait::Ref, ImplForTrait::RefMut], input, derive);
+    }
+
+    #[test]
+    fn invalid_ref_mut_method() {
+        let input = quote!(
+            pub trait ItWorks {
+                fn method1(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+                fn method2(&self);
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::Ref], input, "auto impl for `&T` is only supported for methods with a `&self` reciever");
     }
 
     #[test]
