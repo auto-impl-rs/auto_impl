@@ -20,12 +20,14 @@ pub fn attr<'a>(input: &'a str) -> Result<Vec<String>, String> {
             0 => Ok(()),
             _ => {
                 match rest[0] as char {
+                    // Parse a borrowed reference
                     '&' => {
                         let (ident, rest) = ident(rest);
                         traits.push(ident);
 
                         attr_inner(rest, traits)
                     },
+                    // Parse a regular ident
                     c if c.is_alphabetic() => {
                         let (ident, rest) = ident(rest);
                         traits.push(ident);
@@ -45,7 +47,7 @@ pub fn attr<'a>(input: &'a str) -> Result<Vec<String>, String> {
     let close = input.iter().position(|c| *c == b')');
 
     match (open, close) {
-        (Some(open), Some(close)) => attr_inner(&input[open..close], &mut traits)?,
+        (Some(open), Some(close)) => attr_inner(&input[open + 1 .. close], &mut traits)?,
         _ => Err("attribute format should be `#[auto_impl(a, b, c)]`")?
     }
 

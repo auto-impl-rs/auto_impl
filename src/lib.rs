@@ -15,6 +15,8 @@ mod impl_fn;
 
 use std::str::FromStr;
 use quote::Tokens;
+use impl_as_ref::{RefTrait, WrapperTrait};
+use impl_fn::FnTrait;
 use model::*;
 
 const IMPL_FOR_TRAIT_ERR: &'static str = "expected a list containing any of `&`, `&mut`, `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`";
@@ -44,10 +46,7 @@ impl FromStr for ImplForTrait {
             "FnOnce" => Ok(ImplForTrait::FnOnce),
             "&" => Ok(ImplForTrait::Ref),
             "&mut" => Ok(ImplForTrait::RefMut),
-            c => {
-                println!("got: {}", c);
-                Err(IMPL_FOR_TRAIT_ERR)?
-            }
+            _ => Err(IMPL_FOR_TRAIT_ERR)?,
         }
     }
 }
@@ -66,14 +65,14 @@ fn auto_impl_expand(impl_for_traits: &[ImplForTrait], tokens: Tokens) -> Result<
     let impls: Vec<_> = impl_for_traits.iter()
         .map(|impl_for_trait| {
             match *impl_for_trait {
-                ImplForTrait::Arc => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Arc", quote!(::std::sync::Arc))),
-                ImplForTrait::Rc => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Rc", quote!(::std::rc::Rc))),
-                ImplForTrait::Box => impl_as_ref::build_wrapper(&auto_impl, Trait::new("Box", quote!(Box))),
-                ImplForTrait::Ref => impl_as_ref::build_immutable(&auto_impl),
-                ImplForTrait::RefMut => impl_as_ref::build_mutable(&auto_impl),
-                ImplForTrait::Fn => impl_fn::build(&auto_impl, Trait::new("Fn", quote!(Fn))),
-                ImplForTrait::FnMut => impl_fn::build(&auto_impl, Trait::new("FnMut", quote!(FnMut))),
-                ImplForTrait::FnOnce => impl_fn::build(&auto_impl, Trait::new("FnOnce", quote!(FnOnce)))
+                ImplForTrait::Arc => impl_as_ref::build_wrapper(&auto_impl, WrapperTrait::impl_arc()),
+                ImplForTrait::Rc => impl_as_ref::build_wrapper(&auto_impl, WrapperTrait::impl_rc()),
+                ImplForTrait::Box => impl_as_ref::build_wrapper(&auto_impl, WrapperTrait::impl_box()),
+                ImplForTrait::Ref => impl_as_ref::build_ref(&auto_impl, RefTrait::impl_ref()),
+                ImplForTrait::RefMut => impl_as_ref::build_ref(&auto_impl, RefTrait::impl_ref_mut()),
+                ImplForTrait::Fn => impl_fn::build(&auto_impl, FnTrait::impl_fn()),
+                ImplForTrait::FnMut => impl_fn::build(&auto_impl, FnTrait::impl_fn_mut()),
+                ImplForTrait::FnOnce => impl_fn::build(&auto_impl, FnTrait::impl_fn_once())
             }
         })
         .collect();
@@ -115,11 +114,14 @@ mod tests {
 
     #[test]
     fn impl_types() {
-        let input = quote!(#[auto_impl(Arc, Box, Fn, FnMut, FnOnce)]);
+        let input = quote!(#[auto_impl(&, &mut, Rc, Arc, Box, Fn, FnMut, FnOnce)]);
 
         let impls = parse_impl_types(input).unwrap();
 
         assert_eq!(vec![
+            ImplForTrait::Ref,
+            ImplForTrait::RefMut,
+            ImplForTrait::Rc,
             ImplForTrait::Arc,
             ImplForTrait::Box,
             ImplForTrait::Fn,
@@ -132,36 +134,25 @@ mod tests {
     fn invalid_impl_types() {
         let input = quote!(#[auto_impl(NotSupported)]);
 
-        let impls = parse_impl_types(input).unwrap_err();
+        let impls = parse_impl_types(input);
 
-        assert_eq!("expected a list containing any of `&`, `&mut`, `Arc`, `Rc`, `Box`, `Fn`, `FnMut` or `FnOnce`", &impls);
+        assert!(impls.is_err());
     }
 
     #[test]
-    fn parse_attr_single() {
-        let input = quote!(#[auto_impl(&)]);
-        let impl_types = parse_impl_types(input).unwrap();
+    fn parse_attr_raw_single() {
+        let input = "#[auto_impl(&)]";
+        let parsed = parse::attr(input).unwrap();
 
-        let expected = vec![ImplForTrait::Ref];
-
-        assert_eq!(impl_types, expected);
+        assert_eq!(parsed, &["&"]);
     }
 
     #[test]
-    fn parse_attr_multi() {
-        let input = quote!(#[auto_impl(&, &mut, Arc)]);
+    fn parse_attr_raw() {
+        let input = "#[auto_impl(&, &mut, Arc)]";
+        let parsed = parse::attr(input).unwrap();
 
-        println!("{}", input);
-
-        let impl_types = parse_impl_types(input).unwrap();
-
-        let expected = vec![
-            ImplForTrait::Ref,
-            ImplForTrait::RefMut,
-            ImplForTrait::Arc,
-        ];
-
-        assert_eq!(impl_types, expected);
+        assert_eq!(parsed, &["&", "&mut", "Arc"]);
     }
 
     #[test]
@@ -175,6 +166,8 @@ mod tests {
                 fn method2(&self) {
                     println!("default");
                 }
+                /// Some docs.
+                fn method3() -> &'static str;
             }
         );
 
@@ -183,26 +176,70 @@ mod tests {
                 where TAutoImpl: ItWorks
             {
                 fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
-                    self.as_ref().method1(arg1, arg2)
+                    (**self).method1(arg1, arg2)
                 }
                 fn method2(&self) {
-                    self.as_ref().method2()
+                    (**self).method2()
+                }
+                fn method3() -> &'static str {
+                    TAutoImpl::method3()
                 }
             }
 
-            impl<TAutoImpl> ItWorks for Box<TAutoImpl>
+            impl<TAutoImpl> ItWorks for ::std::rc::Rc<TAutoImpl>
                 where TAutoImpl: ItWorks
             {
                 fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
-                    self.as_ref().method1(arg1, arg2)
+                    (**self).method1(arg1, arg2)
                 }
                 fn method2(&self) {
-                    self.as_ref().method2()
+                    (**self).method2()
+                }
+                fn method3() -> &'static str {
+                    TAutoImpl::method3()
                 }
             }
         );
 
-        assert_tokens(&[ImplForTrait::Arc, ImplForTrait::Box], input, derive);
+        assert_tokens(&[ImplForTrait::Arc, ImplForTrait::Rc], input, derive);
+    }
+
+    #[test]
+    fn impl_box() {
+        let input = quote!(
+            /// Some docs.
+            pub trait ItWorks {
+                /// Some docs.
+                fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+                /// Some docs.
+                fn method2(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+                /// Some docs.
+                fn method3(self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+                /// Some docs.
+                fn method4() -> &'static str;
+            }
+        );
+
+        let derive = quote!(
+            impl<TAutoImpl> ItWorks for ::std::boxed::Box<TAutoImpl>
+                where TAutoImpl: ItWorks
+            {
+                fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                    (**self).method1(arg1, arg2)
+                }
+                fn method2(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                    (**self).method2(arg1, arg2)
+                }
+                fn method3(self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
+                    (*self).method3(arg1, arg2)
+                }
+                fn method4() -> &'static str {
+                    TAutoImpl::method4()
+                }
+            }
+        );
+
+        assert_tokens(&[ImplForTrait::Box], input, derive);
     }
 
     #[test]
@@ -212,13 +249,6 @@ mod tests {
             pub trait ItWorks {
                 /// Some docs.
                 type Type1: AsRef<[u8]>;
-
-                /// Some docs.
-                fn method1(&self, arg1: i32, arg2: Self::Type1) -> Result<(), String>;
-                /// Some docs.
-                fn method2(&self) {
-                    println!("default");
-                }
             }
         );
 
@@ -227,30 +257,10 @@ mod tests {
                 where TAutoImpl: ItWorks
             {
                 type Type1 = TAutoImpl::Type1;
-
-                fn method1(&self, arg1: i32, arg2: Self::Type1) -> Result<(), String> {
-                    self.as_ref().method1(arg1, arg2)
-                }
-                fn method2(&self) {
-                    self.as_ref().method2()
-                }
-            }
-
-            impl<TAutoImpl> ItWorks for Box<TAutoImpl>
-                where TAutoImpl: ItWorks
-            {
-                type Type1 = TAutoImpl::Type1;
-
-                fn method1(&self, arg1: i32, arg2: Self::Type1) -> Result<(), String> {
-                    self.as_ref().method1(arg1, arg2)
-                }
-                fn method2(&self) {
-                    self.as_ref().method2()
-                }
             }
         );
 
-        assert_tokens(&[ImplForTrait::Arc, ImplForTrait::Box], input, derive);
+        assert_tokens(&[ImplForTrait::Arc], input, derive);
     }
 
     #[test]
@@ -258,11 +268,21 @@ mod tests {
         let input = quote!(
             pub trait ItWorks {
                 fn method1(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
-                fn method2(&self);
             }
         );
 
-        assert_invalid(&[ImplForTrait::Arc], input, "auto impl for `Arc` is only supported for methods with a `&self` reciever");
+        assert_invalid(&[ImplForTrait::Arc], input, "auto impl for `Arc` is only supported for methods with a `&self` or static reciever");
+    }
+
+    #[test]
+    fn invalid_as_ref_by_value_method() {
+        let input = quote!(
+            pub trait ItWorks {
+                fn method1(self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::Arc], input, "auto impl for `Arc` is only supported for methods with a `&self` or static reciever");
     }
 
     #[test]
@@ -299,13 +319,34 @@ mod tests {
     #[test]
     fn invalid_ref_mut_method() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 fn method1(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
-                fn method2(&self);
             }
         );
 
-        assert_invalid(&[ImplForTrait::Ref], input, "auto impl for `&T` is only supported for methods with a `&self` reciever");
+        assert_invalid(&[ImplForTrait::Ref], input, "auto impl for `&T` is only supported for methods with a `&self` or static reciever");
+    }
+
+    #[test]
+    fn invalid_ref_by_value_method() {
+        let input = quote!(
+            pub trait ItFails {
+                fn method1(self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::Ref], input, "auto impl for `&T` is only supported for methods with a `&self` or static reciever");
+    }
+
+    #[test]
+    fn invalid_ref_mut_by_value_method() {
+        let input = quote!(
+            pub trait ItFails {
+                fn method1(self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
+            }
+        );
+
+        assert_invalid(&[ImplForTrait::RefMut], input, "auto impl for `&mut T` is only supported for methods with a `&self`, `&mut self` or static reciever");
     }
 
     #[test]
@@ -320,7 +361,7 @@ mod tests {
 
         let derive = quote!(
             impl<TFn> ItWorks for TFn
-                where TFn: Fn(i32, Option<String>) -> Result<&'static str, String>
+                where TFn: ::std::ops::Fn(i32, Option<String>) -> Result<&'static str, String>
             {
                 fn method(&self, arg1: i32, arg2: Option<String>) -> Result<&'static str, String> {
                     self(arg1, arg2)
@@ -343,7 +384,7 @@ mod tests {
 
         let derive = quote!(
             impl<'a, T, U, TFn> ItWorks<'a, T, U> for TFn
-                where TFn: Fn(i32, &U, &'static str) -> Result<T, String>,
+                where TFn: ::std::ops::Fn(i32, &U, &'static str) -> Result<T, String>,
                       U: AsRef<[u8]>
             {
                 fn method<'b>(&'a self, arg1: i32, arg2: &'b U, arg3: &'static str) -> Result<T, String> {
@@ -365,7 +406,7 @@ mod tests {
 
         let derive = quote!(
             impl<TFn> ItWorks for TFn
-                where TFn: FnMut(i32, Option<String>) -> Result<(), String>
+                where TFn: ::std::ops::FnMut(i32, Option<String>) -> Result<(), String>
             {
                 fn method(&mut self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
                     self(arg1, arg2)
@@ -386,7 +427,7 @@ mod tests {
 
         let derive = quote!(
             impl<TFn> ItWorks for TFn
-                where TFn: FnOnce(i32, Option<String>) -> Result<(), String>
+                where TFn: ::std::ops::FnOnce(i32, Option<String>) -> Result<(), String>
             {
                 fn method(self, arg1: i32, arg2: Option<String>) -> Result<(), String> {
                     self(arg1, arg2)
@@ -407,7 +448,7 @@ mod tests {
 
         let derive = quote!(
             impl<TFn> ItWorks for TFn
-                where TFn: Fn(i32, Option<String>)
+                where TFn: ::std::ops::Fn(i32, Option<String>)
             {
                 fn method(&self, arg1: i32, arg2: Option<String>) {
                     self(arg1, arg2)
@@ -421,7 +462,7 @@ mod tests {
     #[test]
     fn invalid_fn_associated_types() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 type TypeA;
                 type TypeB;
 
@@ -435,7 +476,7 @@ mod tests {
     #[test]
     fn invalid_fn_lifetime_in_return_type_path() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 fn method<'a>(&'a self) -> Result<Option<&'a str>, String>;
             }
         );
@@ -446,7 +487,7 @@ mod tests {
     #[test]
     fn invalid_fn_lifetime_in_return_type_tuple() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 fn method<'a>(&'a self) -> Result<(&'a str, i32), String>;
             }
         );
@@ -457,7 +498,7 @@ mod tests {
     #[test]
     fn invalid_fn_no_methods() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 
             }
         );
@@ -468,7 +509,7 @@ mod tests {
     #[test]
     fn invalid_fn_multiple_methods() {
         let input = quote!(
-            pub trait ItWorks {
+            pub trait ItFails {
                 fn method1(&self, arg1: i32, arg2: Option<String>) -> Result<(), String>;
                 fn method2(&self) -> String;
             }

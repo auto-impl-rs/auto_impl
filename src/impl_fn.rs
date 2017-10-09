@@ -2,6 +2,30 @@ use syn;
 use quote::Tokens;
 use model::*;
 
+pub struct FnTrait {
+    inner: Trait,
+}
+
+impl FnTrait {
+    pub fn impl_fn() -> Self {
+        FnTrait {
+            inner: Trait::new("Fn", quote!(::std::ops::Fn))
+        }
+    }
+
+    pub fn impl_fn_mut() -> Self {
+        FnTrait {
+            inner: Trait::new("FnMut", quote!(::std::ops::FnMut))
+        }
+    }
+
+    pub fn impl_fn_once() -> Self {
+        FnTrait {
+            inner: Trait::new("FnOnce", quote!(::std::ops::FnOnce))
+        }
+    }
+}
+
 /// Auto implement a trait for a function.
 /// 
 /// This expects the input type to have the following properties:
@@ -13,7 +37,9 @@ use model::*;
 /// - It has a single method
 /// - It has no associated type
 /// - It has no non-static lifetimes in the return type
-pub fn build(component: &AutoImpl, ref_ty: Trait) -> Result<Tokens, String> {
+pub fn build(component: &AutoImpl, ref_ty: FnTrait) -> Result<Tokens, String> {
+    let ref_ty = ref_ty.inner;
+
     let method = expect_single_method(component, &ref_ty)?;
 
     expect_static_lifetimes_in_return_ty(&method, &ref_ty)?;
