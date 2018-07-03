@@ -9,7 +9,7 @@ use proc_macro::{
 
 
 /// Types for which a trait can automatically be implemented.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProxyType {
     Arc,
     Rc,
@@ -134,4 +134,32 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
     };
 
     Ok(ty)
+}
+
+// Right now, these tests fail because `TokenStream::from_str` panics due to
+// an internal error. It is only supposed to be called with a valid session,
+// as a "real" macro invocation.
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+    use proc_macro::TokenStream;
+
+    use super::{ProxyType, parse_types};
+
+
+    #[test]
+    fn empty() {
+        assert_eq!(
+            parse_types(TokenStream::new()),
+            Ok(vec![])
+        );
+    }
+
+    #[test]
+    fn single_ref() {
+        assert_eq!(
+            parse_types(TokenStream::from_str("&").unwrap()),
+            Ok(vec![ProxyType::Ref])
+        );
+    }
 }
