@@ -19,4 +19,5 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "0.4.6"
 quote = "0.6.3"
-syn = { version = "0.14.4", features = ["full"] }
+# TODO: remove "extra-traits", it's just for debugging
+syn = { version = "0.14.4", features = ["full", "extra-traits"] }
