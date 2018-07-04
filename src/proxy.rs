@@ -21,6 +21,15 @@ pub(crate) enum ProxyType {
     FnOnce,
 }
 
+impl ProxyType {
+    pub(crate) fn is_ref(&self) -> bool {
+        match *self {
+            ProxyType::Ref | ProxyType::RefMut => true,
+            _ => false,
+        }
+    }
+}
+
 /// Parses the attribute token stream into a list of proxy types.
 ///
 /// The attribute token stream is the one in `#[auto_impl(...)]`. It is

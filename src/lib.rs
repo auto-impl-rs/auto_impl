@@ -33,14 +33,14 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         // Try to parse the
         match syn::parse::<syn::ItemTrait>(input.clone()) {
             Ok(trait_def) => {
-                println!("{:#?}", trait_def);
+                // println!("{:#?}", trait_def);
 
                 let impls = gen::gen_impls(&proxy_types, &trait_def)?;
                 Ok(impls)
             }
             Err(e) => {
                 let msg = "couldn't parse trait item";
-                Diagnostic::spanned(Span::call_site(), Level::Error , msg)
+                Diagnostic::spanned(Span::call_site(), Level::Error, msg)
                     .note(e.to_string())
                     .note("the #[auto_impl] attribute can only be applied to traits!")
                     .emit();
@@ -52,5 +52,11 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // Combine the original token stream with the additional one containing the
     // generated impls (or nothing if an error occured).
-    vec![input, impls].into_iter().collect()
+    let out = vec![input, impls].into_iter().collect();
+
+    // println!("--------------------");
+    // println!("{}", out);
+    // println!("--------------------");
+
+    out
 }

@@ -6,7 +6,7 @@ use auto_impl::auto_impl;
 
 
 #[auto_impl(&, Box, &mut)]
-trait Foo {
+trait Foo<'a, X, Y = i32> {
     // fn foo(&self);
 }
 
