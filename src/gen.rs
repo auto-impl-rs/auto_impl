@@ -4,7 +4,7 @@ use proc_macro2::{
 };
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
-    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod
+    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg,
 };
 
 
@@ -124,6 +124,61 @@ fn items(
     }).collect()
 }
 
-fn method_item(_proxy_type: &ProxyType, _item: &TraitItemMethod) -> Result<TokenStream2, ()> {
-    Ok(TokenStream2::new())
+fn method_item(proxy_type: &ProxyType, item: &TraitItemMethod) -> Result<TokenStream2, ()> {
+    enum SelfType {
+        None,
+        Ref,
+        Mut,
+        Value,
+    }
+
+    let sig = &item.sig;
+    let name = &sig.ident;
+    let args = TokenStream2::new(); // TODO
+
+    let self_arg = match sig.decl.inputs.iter().next() {
+        Some(FnArg::SelfValue(_)) => SelfType::Value,
+        Some(FnArg::SelfRef(arg)) if arg.mutability.is_none() => SelfType::Ref,
+        Some(FnArg::SelfRef(arg)) if arg.mutability.is_some() => SelfType::Mut,
+        _ => SelfType::None,
+    };
+
+    // Check if this method can be implemented for the given proxy type
+    match (proxy_type, self_arg) {
+        (ProxyType::Ref, SelfType::Mut) |
+        (ProxyType::Ref, SelfType::Value) => {
+
+        }
+        (ProxyType::RefMut, SelfType::Value) => {
+
+        }
+        (ProxyType::Rc, SelfType::Mut) |
+        (ProxyType::Rc, SelfType::Value) |
+        (ProxyType::Arc, SelfType::Mut) |
+        (ProxyType::Arc, SelfType::Value) => {
+
+        }
+        (ProxyType::Fn, _) |
+        (ProxyType::FnMut, _) |
+        (ProxyType::FnOnce, _) => {
+            unimplemented!()
+        }
+        _ => {} // All other combinations are fine
+    }
+
+    let body = match proxy_type {
+        ProxyType::Ref | ProxyType::RefMut | ProxyType::Arc | ProxyType::Rc | ProxyType::Box => {
+            quote! {
+                (**self).#name(#args)
+            }
+        }
+        ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
+            quote! {
+                self(#args)
+            }
+        }
+    };
+
+
+    Ok(quote! { #sig { #body }})
 }
