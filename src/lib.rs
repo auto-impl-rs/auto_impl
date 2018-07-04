@@ -19,6 +19,7 @@ use proc_macro::{
 
 mod gen;
 mod proxy;
+mod spanned;
 
 
 #[proc_macro_attribute]
