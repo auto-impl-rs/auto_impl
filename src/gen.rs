@@ -1,6 +1,6 @@
 use proc_macro2::{
     TokenStream as TokenStream2,
-    Span,
+    Span as Span2,
 };
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
@@ -34,7 +34,7 @@ pub(crate) fn gen_impls(
 }
 
 fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
-    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span::call_site());
+    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
 
     // Generate generics for impl positions from trait generics.
     let (impl_generics, trait_generics, where_clause) = trait_def.generics.split_for_impl();
@@ -57,7 +57,7 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
         // Determine if our proxy type needs a lifetime parameter
         let (mut params, ty_bounds) = match proxy_type {
             ProxyType::Ref | ProxyType::RefMut => {
-                let lifetime = &Lifetime::new(PROXY_LT_PARAM_NAME, Span::call_site());
+                let lifetime = &Lifetime::new(PROXY_LT_PARAM_NAME, Span2::call_site());
                 (quote! { #lifetime, }, quote! { : #lifetime + #trait_path })
             }
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => {
