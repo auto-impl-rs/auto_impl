@@ -5,7 +5,7 @@ extern crate auto_impl;
 use auto_impl::auto_impl;
 
 
-#[auto_impl(&, Box, &mut)]
+#[auto_impl(&, &mut)]
 trait Foo<'a, X, Y = i32> {
     // fn foo(&self);
 }

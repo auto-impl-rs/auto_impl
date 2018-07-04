@@ -7,6 +7,7 @@ extern crate proc_macro;
 extern crate proc_macro2;
 #[macro_use]
 extern crate quote;
+#[macro_use]
 extern crate syn;
 
 
@@ -54,9 +55,9 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     // generated impls (or nothing if an error occured).
     let out = vec![input, impls].into_iter().collect();
 
-    // println!("--------------------");
-    // println!("{}", out);
-    // println!("--------------------");
+    println!("--------------------");
+    println!("{}", out);
+    println!("--------------------");
 
     out
 }
