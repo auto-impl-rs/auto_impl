@@ -1,5 +1,6 @@
 #![feature(crate_in_paths)]
 #![feature(extern_prelude)]
+#![feature(in_band_lifetimes)]
 #![feature(proc_macro)]
 
 
@@ -28,7 +29,7 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         // Try to parse the token stream from the attribute to get a list of
         // proxy types.
         let proxy_types = proxy::parse_types(args)?;
-        println!("Proxy types: {:?}", proxy_types);
+        // println!("Proxy types: {:?}", proxy_types);
 
         // Try to parse the
         match syn::parse::<syn::ItemTrait>(input.clone()) {

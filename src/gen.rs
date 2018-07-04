@@ -4,7 +4,7 @@ use proc_macro2::{
 };
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
-    Ident, Lifetime,
+    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod
 };
 
 
@@ -23,18 +23,17 @@ pub(crate) fn gen_impls(
     // One impl for each proxy type
     for proxy_type in proxy_types {
         let header = header(proxy_type, trait_def);
+        let items = items(proxy_type, trait_def)?;
 
         tokens.append_all(quote! {
-            #header {
-                // TODO
-            }
+            #header { #( #items )* }
         });
     }
 
     Ok(tokens.into())
 }
 
-fn header(proxy_type: &ProxyType, trait_def: &syn::ItemTrait) -> TokenStream2 {
+fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
     let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span::call_site());
 
     // Generate generics for impl positions from trait generics.
@@ -108,4 +107,23 @@ fn header(proxy_type: &ProxyType, trait_def: &syn::ItemTrait) -> TokenStream2 {
     quote! {
         impl<#impl_generics> #trait_path for #self_ty #where_clause
     }
+}
+
+fn items(
+    proxy_type: &ProxyType,
+    trait_def: &ItemTrait,
+) -> Result<Vec<TokenStream2>, ()> {
+    trait_def.items.iter().map(|item| {
+        match item {
+            TraitItem::Const(_) => unimplemented!(),
+            TraitItem::Method(method) => method_item(proxy_type, method),
+            TraitItem::Type(_) => unimplemented!(),
+            TraitItem::Macro(_) => unimplemented!(),
+            TraitItem::Verbatim(_) => unimplemented!(),
+        }
+    }).collect()
+}
+
+fn method_item(_proxy_type: &ProxyType, _item: &TraitItemMethod) -> Result<TokenStream2, ()> {
+    Ok(TokenStream2::new())
 }
