@@ -21,15 +21,22 @@ pub(crate) enum ProxyType {
     FnOnce,
 }
 
-// TODO
-// impl ProxyType {
-//     pub(crate) fn is_ref(&self) -> bool {
-//         match *self {
-//             ProxyType::Ref | ProxyType::RefMut => true,
-//             _ => false,
-//         }
-//     }
-// }
+impl ProxyType {
+    // TODO
+    // pub(crate) fn is_ref(&self) -> bool {
+    //     match *self {
+    //         ProxyType::Ref | ProxyType::RefMut => true,
+    //         _ => false,
+    //     }
+    // }
+
+    pub(crate) fn is_fn(&self) -> bool {
+        match *self {
+            ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => true,
+            _ => false,
+        }
+    }
+}
 
 /// Parses the attribute token stream into a list of proxy types.
 ///

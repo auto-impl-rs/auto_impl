@@ -5,7 +5,7 @@ use proc_macro2::{
 };
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
-    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg,
+    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg, Pat, PatIdent,
 };
 
 
@@ -14,10 +14,23 @@ use crate::{
     spanned::Spanned,
 };
 
+/// The type parameter used in the proxy type. Usually, one would just use `T`,
+/// but this could conflict with type parameters on the trait.
+///
+/// Why do we have to care about this? Why about hygiene? In the first version
+/// of stable proc_macros, only call site spans are included. That means that
+/// we cannot generate spans that do not conflict with any other ident the user
+/// wrote. Once proper hygiene is available to proc_macros, this should be
+/// changed.
 const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
+
+/// The lifetime parameter used in the proxy type if the proxy type is `&` or
+/// `&mut`. For more information see `PROXY_TY_PARAM_NAME`.
 const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 
 
+/// Generates one complete impl of the given trait for each of the given proxy
+/// types. All impls are returned as token stream.
 pub(crate) fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
@@ -26,7 +39,7 @@ pub(crate) fn gen_impls(
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
-        let header = header(proxy_type, trait_def);
+        let header = header(proxy_type, trait_def)?;
         let items = items(proxy_type, trait_def)?;
 
         tokens.append_all(quote! {
@@ -37,7 +50,9 @@ pub(crate) fn gen_impls(
     Ok(tokens.into())
 }
 
-fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
+/// Generates the header of the impl of the given trait for the given proxy
+/// type.
+fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2, ()> {
     let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
 
     // Generate generics for impl positions from trait generics.
@@ -108,11 +123,13 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
 
 
     // Combine everything
-    quote! {
+    Ok(quote! {
         impl<#impl_generics> #trait_path for #self_ty #where_clause
-    }
+    })
 }
 
+/// Generates the implementation of all items of the given trait. These
+/// implementations together are the body of the `impl` block.
 fn items(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
@@ -128,17 +145,19 @@ fn items(
     }).collect()
 }
 
+/// Generates the implementation of a method item described by `item`. The
+/// implementation is returned as token stream.
+///
+/// This function also performs sanity checks, e.g. whether the proxy type can
+/// be used to implement the method. If any error occurs, the error is
+/// immediately emitted and `Err(())` is returned.
 fn method_item(
     proxy_type: &ProxyType,
     item: &TraitItemMethod,
     trait_def: &ItemTrait,
 ) -> Result<TokenStream2, ()> {
-
-
+    // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
-    let name = &sig.ident;
-    let args = TokenStream2::new(); // TODO
-
     let self_arg = match sig.decl.inputs.iter().next() {
         Some(FnArg::SelfValue(_)) => SelfType::Value,
         Some(FnArg::SelfRef(arg)) if arg.mutability.is_none() => SelfType::Ref,
@@ -149,20 +168,44 @@ fn method_item(
     // Check self type and proxy type combination
     check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span())?;
 
-    let body = match proxy_type {
-        ProxyType::Ref | ProxyType::RefMut | ProxyType::Arc | ProxyType::Rc | ProxyType::Box => {
-            quote! {
-                (**self).#name(#args)
+    // Generate the list of argument used to call the method.
+    let args = get_arg_list(sig.decl.inputs.iter())?;
+
+    // Generate the body of the function. This mainly depends on the self type,
+    // but also on the proxy type.
+    let name = &sig.ident;
+    let body = match self_arg {
+        // No receiver
+        SelfType::None => {
+            // The proxy type is a reference, smartpointer or Box, but not Fn*.
+            let proxy_ty = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
+            quote! { #proxy_ty::#name(#args) }
+        }
+
+        // Receiver `self` (by value)
+        SelfType::Value => {
+            // The proxy type is either Box or Fn*.
+            if *proxy_type == ProxyType::Box {
+                quote! { *self.#name(#args) }
+            } else {
+                unimplemented!()
             }
         }
-        ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
-            quote! {
-                self(#args)
+
+        // `&self` or `&mut self` receiver
+        SelfType::Ref | SelfType::Mut => {
+            // The proxy type could be anything in the `Ref` case, and `&mut`,
+            // Box or Fn* in the `Mut` case.
+            if proxy_type.is_fn() {
+                unimplemented!()
+            } else {
+                quote! { (**self).#name(#args) }
             }
         }
     };
 
-
+    // Combine body with signature
+    // TODO: maybe add `#[inline]`?
     Ok(quote! { #sig { #body }})
 }
 
@@ -262,4 +305,60 @@ fn check_receiver_compatible(
 
         _ => Ok(()), // All other combinations are fine
     }
+}
+
+/// Generates a list of comma-separated arguments used to call the function.
+/// Currently, only simple names are valid and more complex pattern will lead
+/// to an error being emitted. `self` parameters are ignored.
+fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2, ()> {
+    let mut args = TokenStream2::new();
+
+    for arg in inputs {
+        match arg {
+            FnArg::Captured(arg) => {
+                // Make sure the argument pattern is a simple name. In
+                // principle, we could probably support patterns, but it's
+                // not that important now.
+                if let Pat::Ident(PatIdent {
+                    by_ref: None,
+                    mutability: None,
+                    ident,
+                    subpat: None,
+                }) = &arg.pat {
+                    // Add name plus trailing comma to tokens
+                    args.append_all(quote! { #ident , });
+                } else {
+                    arg.pat.span()
+                        .error("\
+                            argument patterns are not supported by #[auto-impl]. Please use \
+                            a simple name (not `_`).\
+                        ")
+                        .emit();
+
+                    return Err(());
+                }
+            }
+
+            // Honestly, I'm not sure what this is.
+            FnArg::Ignored(ty) => {
+                ty.span()
+                    .error("cannot auto-impl trait, because this argument is ignored")
+                    .emit();
+
+                return Err(());
+            }
+
+            FnArg::Inferred(_) => {
+                // This can't happen in today's Rust and it's unlikely to
+                // change in the near future.
+                panic!("argument with inferred type in trait method");
+            }
+
+            // There is only one such argument. We handle it elsewhere and
+            // can ignore it here.
+            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {}
+        }
+    }
+
+    Ok(args)
 }
