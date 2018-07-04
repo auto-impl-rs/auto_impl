@@ -1,9 +1,11 @@
+#![feature(crate_in_paths)]
+#![feature(extern_prelude)]
 #![feature(proc_macro)]
 
 
-// extern crate proc_macro2;
 extern crate proc_macro;
-// #[macro_use]
+extern crate proc_macro2;
+#[macro_use]
 extern crate quote;
 extern crate syn;
 
@@ -14,6 +16,7 @@ use proc_macro::{
 };
 
 
+mod gen;
 mod proxy;
 
 
@@ -32,8 +35,8 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             Ok(trait_def) => {
                 println!("{:#?}", trait_def);
 
-                // TODO: generate impls
-                Ok(TokenStream::new())
+                let impls = gen::gen_impls(&proxy_types, &trait_def)?;
+                Ok(impls)
             }
             Err(e) => {
                 let msg = "couldn't parse trait item";

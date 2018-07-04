@@ -7,7 +7,7 @@ use auto_impl::auto_impl;
 
 #[auto_impl(&, Box, &mut)]
 trait Foo {
-    fn foo(&self);
+    // fn foo(&self);
 }
 
 

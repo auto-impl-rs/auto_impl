@@ -11,14 +11,14 @@ use proc_macro::{
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProxyType {
+    Ref,
+    RefMut,
     Arc,
     Rc,
     Box,
     Fn,
     FnMut,
     FnOnce,
-    Ref,
-    RefMut,
 }
 
 /// Parses the attribute token stream into a list of proxy types.
