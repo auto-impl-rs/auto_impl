@@ -1,3 +1,4 @@
+use proc_macro::Span;
 use proc_macro2::{
     TokenStream as TokenStream2,
     Span as Span2,
@@ -8,7 +9,10 @@ use syn::{
 };
 
 
-use crate::proxy::ProxyType;
+use crate::{
+    proxy::ProxyType,
+    spanned::Spanned,
+};
 
 const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
 const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
@@ -116,7 +120,7 @@ fn items(
     trait_def.items.iter().map(|item| {
         match item {
             TraitItem::Const(_) => unimplemented!(),
-            TraitItem::Method(method) => method_item(proxy_type, method),
+            TraitItem::Method(method) => method_item(proxy_type, method, trait_def),
             TraitItem::Type(_) => unimplemented!(),
             TraitItem::Macro(_) => unimplemented!(),
             TraitItem::Verbatim(_) => unimplemented!(),
@@ -124,13 +128,12 @@ fn items(
     }).collect()
 }
 
-fn method_item(proxy_type: &ProxyType, item: &TraitItemMethod) -> Result<TokenStream2, ()> {
-    enum SelfType {
-        None,
-        Ref,
-        Mut,
-        Value,
-    }
+fn method_item(
+    proxy_type: &ProxyType,
+    item: &TraitItemMethod,
+    trait_def: &ItemTrait,
+) -> Result<TokenStream2, ()> {
+
 
     let sig = &item.sig;
     let name = &sig.ident;
@@ -143,28 +146,8 @@ fn method_item(proxy_type: &ProxyType, item: &TraitItemMethod) -> Result<TokenSt
         _ => SelfType::None,
     };
 
-    // Check if this method can be implemented for the given proxy type
-    match (proxy_type, self_arg) {
-        (ProxyType::Ref, SelfType::Mut) |
-        (ProxyType::Ref, SelfType::Value) => {
-
-        }
-        (ProxyType::RefMut, SelfType::Value) => {
-
-        }
-        (ProxyType::Rc, SelfType::Mut) |
-        (ProxyType::Rc, SelfType::Value) |
-        (ProxyType::Arc, SelfType::Mut) |
-        (ProxyType::Arc, SelfType::Value) => {
-
-        }
-        (ProxyType::Fn, _) |
-        (ProxyType::FnMut, _) |
-        (ProxyType::FnOnce, _) => {
-            unimplemented!()
-        }
-        _ => {} // All other combinations are fine
-    }
+    // Check self type and proxy type combination
+    check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span())?;
 
     let body = match proxy_type {
         ProxyType::Ref | ProxyType::RefMut | ProxyType::Arc | ProxyType::Rc | ProxyType::Box => {
@@ -181,4 +164,102 @@ fn method_item(proxy_type: &ProxyType, item: &TraitItemMethod) -> Result<TokenSt
 
 
     Ok(quote! { #sig { #body }})
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelfType {
+    None,
+    Ref,
+    Mut,
+    Value,
+}
+
+impl SelfType {
+    fn as_str(&self) -> Option<&'static str> {
+        match *self {
+            SelfType::None => None,
+            SelfType::Ref => Some("&self"),
+            SelfType::Mut => Some("&mut self"),
+            SelfType::Value => Some("self"),
+        }
+    }
+}
+
+/// Checks if this method can be implemented for the given proxy type. If not,
+/// we will emit an error pointing to the method signature.
+fn check_receiver_compatible(
+    proxy_type: &ProxyType,
+    self_arg: SelfType,
+    trait_name: &Ident,
+    sig_span: Span,
+) -> Result<(), ()> {
+    match (proxy_type, self_arg) {
+        (ProxyType::Ref, SelfType::Mut) |
+        (ProxyType::Ref, SelfType::Value) => {
+            let msg = format!(
+                "the trait `{}` cannot be auto-implemented for immutable references, because \
+                    this method has a `{}` receiver (only `&self` and no receiver are allowed)",
+                trait_name,
+                self_arg.as_str().unwrap(),
+            );
+
+            sig_span
+                .error(msg)
+                .span_note(Span::call_site(), "auto-impl for immutable references requested here")
+                .emit();
+
+            Err(())
+        }
+
+        (ProxyType::RefMut, SelfType::Value) => {
+            let msg = format!(
+                "the trait `{}` cannot be auto-implemented for mutable references, because \
+                    this method has a `self` receiver (only `&self`, `&mut self` and no receiver \
+                    are allowed)",
+                trait_name,
+            );
+
+            sig_span
+                .error(msg)
+                .span_note(Span::call_site(), "auto-impl for mutable references requested here")
+                .emit();
+
+            Err(())
+        }
+
+        (ProxyType::Rc, SelfType::Mut) |
+        (ProxyType::Rc, SelfType::Value) |
+        (ProxyType::Arc, SelfType::Mut) |
+        (ProxyType::Arc, SelfType::Value) => {
+            let ptr_name = if *proxy_type == ProxyType::Rc {
+                "Rc"
+            } else {
+                "Arc"
+            };
+
+            let msg = format!(
+                "the trait `{}` cannot be auto-implemented for {}-smartpointer, because \
+                    this method has a `{}` receiver (only `&self` and no receiver are allowed)",
+                trait_name,
+                ptr_name,
+                self_arg.as_str().unwrap(),
+            );
+
+            sig_span
+                .error(msg)
+                .span_note(Span::call_site(), "auto-impl for mutable references requested here")
+                .emit();
+
+            Err(())
+        }
+
+        (ProxyType::Fn, _) |
+        (ProxyType::FnMut, _) |
+        (ProxyType::FnOnce, _) => {
+            unimplemented!()
+        }
+
+        _ => Ok(()), // All other combinations are fine
+    }
 }
