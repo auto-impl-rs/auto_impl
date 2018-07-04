@@ -64,9 +64,7 @@ fn header(proxy_type: &ProxyType, trait_def: &syn::ItemTrait) -> TokenStream2 {
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => {
                 (quote! {}, quote! { : #trait_path })
             }
-            ProxyType::Fn       => (quote! {}, quote! { : ::std::ops::Fn }),
-            ProxyType::FnMut    => (quote! {}, quote! { : ::std::ops::FnMut }),
-            ProxyType::FnOnce   => (quote! {}, quote! { : ::std::ops::FnOnce }),
+            _ => unimplemented!(),
         };
 
         // Append all parameters from the trait. Sadly, `impl_generics`
@@ -79,8 +77,14 @@ fn header(proxy_type: &ProxyType, trait_def: &syn::ItemTrait) -> TokenStream2 {
         tts.pop();  // the closing `>`
         params.append_all(tts);
 
-        // Append proxy type parameter
-        params.append_all(quote! { , #proxy_ty_param #ty_bounds });
+        // Append proxy type parameter (if there aren't any parameters so far,
+        // we need to add a comma first).
+        let comma = if params.is_empty() {
+            quote! {}
+        } else {
+            quote! { , }
+        };
+        params.append_all(quote! { #comma #proxy_ty_param #ty_bounds });
 
         params
     };
@@ -94,16 +98,14 @@ fn header(proxy_type: &ProxyType, trait_def: &syn::ItemTrait) -> TokenStream2 {
         ProxyType::Arc      => quote! { ::std::sync::Arc<#proxy_ty_param> },
         ProxyType::Rc       => quote! { ::std::rc::Rc<#proxy_ty_param> },
         ProxyType::Box      => quote! { ::std::boxed::Box<#proxy_ty_param> },
-        ProxyType::Fn       => quote! { proxy_ty_param },
-        ProxyType::FnMut    => quote! { proxy_ty_param },
-        ProxyType::FnOnce   => quote! { proxy_ty_param },
+        ProxyType::Fn       => quote! { #proxy_ty_param },
+        ProxyType::FnMut    => quote! { #proxy_ty_param },
+        ProxyType::FnOnce   => quote! { #proxy_ty_param },
     };
 
 
     // Combine everything
     quote! {
-        impl<#impl_generics> #trait_path for #self_ty
-        where
-            #where_clause
+        impl<#impl_generics> #trait_path for #self_ty #where_clause
     }
 }
