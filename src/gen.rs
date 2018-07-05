@@ -83,7 +83,10 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => {
                 (quote! {}, quote! { : #trait_path })
             }
-            _ => unimplemented!(),
+            ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
+                let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
+                (quote! {}, quote! { : #fn_bound })
+            }
         };
 
         // Append all parameters from the trait. Sadly, `impl_generics`
@@ -127,6 +130,83 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
     Ok(quote! {
         impl<#impl_generics> #trait_path for #self_ty #where_clause
     })
+}
+
+/// Generates the Fn-trait type (e.g. `FnMut(u32) -> String`) for the given
+/// trait and proxy type (the latter has to be `Fn`, `FnMut` or `FnOnce`!)
+///
+/// If the trait is unsuitable to be implemented for the given proxy type, an
+/// error is emitted and `Err(())` is returned.
+fn gen_fn_type_for_trait(
+    proxy_type: &ProxyType,
+    trait_def: &ItemTrait,
+) -> Result<TokenStream2, ()> {
+    // Only traits with exactly one method can be implemented for Fn-traits.
+    // Associated types and consts are also not allowed.
+    let method = trait_def.items.get(0).and_then(|item| {
+        if let TraitItem::Method(m) = item {
+            Some(m)
+        } else {
+            None
+        }
+    });
+
+    // If this requirement is not satisfied, we emit an error.
+    if method.is_none() || trait_def.items.len() > 1 {
+        trait_def.span()
+            .error("\
+                this trait cannot be auto-implemented for Fn-traits (only traits with exactly one \
+                method and no other items are allowed)\
+            ")
+            .span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+
+        return Err(());
+    }
+
+    // We checked for `None` above
+    let method = method.unwrap();
+
+    // Check if the trait can be implemented for the given proxy type
+    let self_type = SelfType::from_sig(&method.sig);
+    let err = match (self_type, proxy_type) {
+        // The method needs to have a receiver
+        (SelfType::None, _) => Some(("Fn-traits", "no", "")),
+
+        // We can't impl methods with `&mut self` or `&self` receiver for
+        // `FnOnce`
+        (SelfType::Mut, ProxyType::FnOnce) => {
+            Some(("`FnOnce`", "a `&mut self`", " (only `self` is allowed)"))
+        }
+        (SelfType::Ref, ProxyType::FnOnce) => {
+            Some(("`FnOnce`", "a `&self`", " (only `self` is allowed)"))
+        }
+
+        // We can't impl methods with `&self` receiver for `FnMut`
+        (SelfType::Ref, ProxyType::FnMut) => {
+            Some(("`FnMut`", "a `&self`", " (only `self` and `&mut self` are allowed)"))
+        }
+
+        // Other combinations are fine
+        _ => None,
+    };
+
+    if let Some((fn_traits, receiver, allowed)) = err {
+        let msg = format!(
+            "the trait '{}' cannot be auto-implemented for {}, because this method has \
+                {} receiver{}",
+            trait_def.ident,
+            fn_traits,
+            receiver,
+            allowed,
+        );
+        method.sig.span()
+            .error(msg)
+            .span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+    }
+
+    unimplemented!()
 }
 
 /// Generates the implementation of all items of the given trait. These
