@@ -178,15 +178,15 @@ fn method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box, but not Fn*.
-            let proxy_ty = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
-            quote! { #proxy_ty::#name(#args) }
+            let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
+            quote! { #proxy_ty_param::#name(#args) }
         }
 
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is either Box or Fn*.
             if *proxy_type == ProxyType::Box {
-                quote! { *self.#name(#args) }
+                quote! { (*self).#name(#args) }
             } else {
                 unimplemented!()
             }
