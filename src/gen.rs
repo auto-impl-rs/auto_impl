@@ -6,7 +6,7 @@ use proc_macro2::{
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
     Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg, Pat, PatIdent,
-    TraitItemType,
+    TraitItemType, MethodSig,
 };
 
 
@@ -216,12 +216,7 @@ fn gen_method_item(
 ) -> Result<TokenStream2, ()> {
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
-    let self_arg = match sig.decl.inputs.iter().next() {
-        Some(FnArg::SelfValue(_)) => SelfType::Value,
-        Some(FnArg::SelfRef(arg)) if arg.mutability.is_none() => SelfType::Ref,
-        Some(FnArg::SelfRef(arg)) if arg.mutability.is_some() => SelfType::Mut,
-        _ => SelfType::None,
-    };
+    let self_arg = SelfType::from_sig(sig);
 
     // Check self type and proxy type combination
     check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span())?;
@@ -277,6 +272,15 @@ enum SelfType {
 }
 
 impl SelfType {
+    fn from_sig(sig: &MethodSig) -> Self {
+        match sig.decl.inputs.iter().next() {
+            Some(FnArg::SelfValue(_)) => SelfType::Value,
+            Some(FnArg::SelfRef(arg)) if arg.mutability.is_none() => SelfType::Ref,
+            Some(FnArg::SelfRef(arg)) if arg.mutability.is_some() => SelfType::Mut,
+            _ => SelfType::None,
+        }
+    }
+
     fn as_str(&self) -> Option<&'static str> {
         match *self {
             SelfType::None => None,
