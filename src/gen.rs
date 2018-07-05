@@ -1,4 +1,4 @@
-use proc_macro::Span;
+use proc_macro::{Diagnostic, Span};
 use proc_macro2::{
     TokenStream as TokenStream2,
     Span as Span2,
@@ -153,15 +153,12 @@ fn gen_fn_type_for_trait(
 
     // If this requirement is not satisfied, we emit an error.
     if method.is_none() || trait_def.items.len() > 1 {
-        trait_def.span()
+        return trait_def.span()
             .error("\
                 this trait cannot be auto-implemented for Fn-traits (only traits with exactly one \
                 method and no other items are allowed)\
             ")
-            .span_note(Span::call_site(), "auto-impl requested here")
-            .emit();
-
-        return Err(());
+            .emit_with_attr_note();
     }
 
     // We checked for `None` above
@@ -171,45 +168,32 @@ fn gen_fn_type_for_trait(
 
     // Check for forbidden modifier of the method
     if let Some(const_token) = sig.constness {
-        let msg = format!(
-            "the trait '{}' cannot be implemented for Fn-traits: const methods are not allowed",
-            trait_def.ident,
-        );
-
-        const_token.span()
-            .error(msg)
-            .span_note(Span::call_site(), "auto-impl requested here")
-            .emit();
-
-        return Err(());
+        return const_token.span()
+            .error(format!(
+                "the trait '{}' cannot be auto-implemented for Fn-traits: const methods are not \
+                    allowed",
+                trait_def.ident,
+            ))
+            .emit_with_attr_note();
     }
 
     if let Some(unsafe_token) = &sig.unsafety {
-        let msg = format!(
-            "the trait '{}' cannot be implemented for Fn-traits: unsafe methods are not allowed",
-            trait_def.ident,
-        );
-
-        unsafe_token.span()
-            .error(msg)
-            .span_note(Span::call_site(), "auto-impl requested here")
-            .emit();
-
-        return Err(());
+        return unsafe_token.span()
+            .error(format!(
+                "the trait '{}' cannot be auto-implemented for Fn-traits: unsafe methods are not \
+                    allowed",
+                trait_def.ident,
+            ))
+            .emit_with_attr_note();
     }
 
     if let Some(abi_token) = &sig.abi {
-        let msg = format!(
-            "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
-            trait_def.ident,
-        );
-
-        abi_token.span()
-            .error(msg)
-            .span_note(Span::call_site(), "auto-impl requested here")
-            .emit();
-
-        return Err(());
+        return abi_token.span()
+            .error(format!(
+                "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
+                trait_def.ident,
+            ))
+            .emit_with_attr_note();
     }
 
 
@@ -247,10 +231,10 @@ fn gen_fn_type_for_trait(
             receiver,
             allowed,
         );
-        method.sig.span()
+
+        return method.sig.span()
             .error(msg)
-            .span_note(Span::call_site(), "auto-impl requested here")
-            .emit();
+            .emit_with_attr_note();
     }
 
     // =======================================================================
@@ -292,20 +276,14 @@ fn gen_items(
                         traits with macro invocations in their bodies are not \
                         supported by auto_impl\
                     ")
-                    .span_note(Span::call_site(), "auto-impl requested here")
-                    .emit();
-
-                Err(())
+                    .emit_with_attr_note()
             },
             TraitItem::Verbatim(v) => {
                 // I don't quite know when this happens, but it's better to
                 // notify the user with a nice error instead of panicking.
                 v.span()
                     .error("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
-                    .span_note(Span::call_site(), "auto-impl requested here")
-                    .emit();
-
-                Err(())
+                    .emit_with_attr_note()
             }
         }
     }).collect()
@@ -323,18 +301,14 @@ fn gen_type_item(
 ) -> Result<TokenStream2, ()> {
     // A trait with associated types cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
-        let msg = format!(
-            "the trait `{}` cannot be auto-implemented for Fn-traits, because it has associated \
-                types (only traits with a single method can be implemented for Fn-traits)",
-            trait_def.ident,
-        );
-
-        item.span()
-            .error(msg)
-            .span_note(Span::call_site(), "auto-impl for Fn-trait requested here")
-            .emit();
-
-        return Err(());
+        return item.span()
+            .error(format!(
+                "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
+                    associated types (only traits with a single method can be implemented \
+                    for Fn-traits)",
+                trait_def.ident,
+            ))
+            .emit_with_attr_note();
     }
 
     // We simply use the associated type from our type parameter.
@@ -442,35 +416,26 @@ fn check_receiver_compatible(
     match (proxy_type, self_arg) {
         (ProxyType::Ref, SelfType::Mut) |
         (ProxyType::Ref, SelfType::Value) => {
-            let msg = format!(
-                "the trait `{}` cannot be auto-implemented for immutable references, because \
-                    this method has a `{}` receiver (only `&self` and no receiver are allowed)",
-                trait_name,
-                self_arg.as_str().unwrap(),
-            );
-
             sig_span
-                .error(msg)
-                .span_note(Span::call_site(), "auto-impl for immutable references requested here")
-                .emit();
-
-            Err(())
+                .error(format!(
+                    "the trait `{}` cannot be auto-implemented for immutable references, because \
+                        this method has a `{}` receiver (only `&self` and no receiver are \
+                        allowed)",
+                    trait_name,
+                    self_arg.as_str().unwrap(),
+                ))
+                .emit_with_attr_note()
         }
 
         (ProxyType::RefMut, SelfType::Value) => {
-            let msg = format!(
-                "the trait `{}` cannot be auto-implemented for mutable references, because \
-                    this method has a `self` receiver (only `&self`, `&mut self` and no receiver \
-                    are allowed)",
-                trait_name,
-            );
-
             sig_span
-                .error(msg)
-                .span_note(Span::call_site(), "auto-impl for mutable references requested here")
-                .emit();
-
-            Err(())
+                .error(format!(
+                    "the trait `{}` cannot be auto-implemented for mutable references, because \
+                        this method has a `self` receiver (only `&self`, `&mut self` and no \
+                        receiver are allowed)",
+                    trait_name,
+                ))
+                .emit_with_attr_note()
         }
 
         (ProxyType::Rc, SelfType::Mut) |
@@ -483,20 +448,16 @@ fn check_receiver_compatible(
                 "Arc"
             };
 
-            let msg = format!(
-                "the trait `{}` cannot be auto-implemented for {}-smartpointer, because \
-                    this method has a `{}` receiver (only `&self` and no receiver are allowed)",
-                trait_name,
-                ptr_name,
-                self_arg.as_str().unwrap(),
-            );
-
             sig_span
-                .error(msg)
-                .span_note(Span::call_site(), "auto-impl for mutable references requested here")
-                .emit();
-
-            Err(())
+                .error(format!(
+                    "the trait `{}` cannot be auto-implemented for {}-smartpointer, because \
+                        this method has a `{}` receiver (only `&self` and no receiver are \
+                        allowed)",
+                    trait_name,
+                    ptr_name,
+                    self_arg.as_str().unwrap(),
+                ))
+                .emit_with_attr_note()
         }
 
         (ProxyType::Fn, _) |
@@ -532,24 +493,20 @@ fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2,
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
                 } else {
-                    arg.pat.span()
+                    return arg.pat.span()
                         .error("\
                             argument patterns are not supported by #[auto-impl]. Please use \
                             a simple name (not `_`).\
                         ")
-                        .emit();
-
-                    return Err(());
+                        .emit_with_attr_note();
                 }
             }
 
             // Honestly, I'm not sure what this is.
             FnArg::Ignored(ty) => {
-                ty.span()
+                return ty.span()
                     .error("cannot auto-impl trait, because this argument is ignored")
-                    .emit();
-
-                return Err(());
+                    .emit_with_attr_note();
             }
 
             FnArg::Inferred(_) => {
@@ -565,4 +522,20 @@ fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2,
     }
 
     Ok(args)
+}
+
+trait DiagnosticExt {
+    /// Helper function to add a note to the diagnostic (with a span pointing
+    /// to the `auto_impl` attribute) and emit the error. Additionally,
+    /// `Err(())` is always returned.
+    fn emit_with_attr_note<T>(self) -> Result<T, ()>;
+}
+
+impl DiagnosticExt for Diagnostic {
+    fn emit_with_attr_note<T>(self) -> Result<T, ()> {
+        self.span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+
+        Err(())
+    }
 }
