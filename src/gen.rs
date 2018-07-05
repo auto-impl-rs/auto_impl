@@ -140,7 +140,20 @@ fn items(
             TraitItem::Const(_) => unimplemented!(),
             TraitItem::Method(method) => gen_method_item(proxy_type, method, trait_def),
             TraitItem::Type(ty) => gen_type_item(proxy_type, ty, trait_def),
-            TraitItem::Macro(_) => unimplemented!(),
+            TraitItem::Macro(mac) => {
+                // We cannot resolve the macro invocation and thus cannot know
+                // if it adds additional items to the trait. Thus, we have to
+                // give up.
+                mac.span()
+                    .error("\
+                        traits with macro invocations in their bodies are not \
+                        supported by auto_impl\
+                    ")
+                    .span_note(Span::call_site(), "auto-impl requested here")
+                    .emit();
+
+                Err(())
+            },
             TraitItem::Verbatim(_) => unimplemented!(),
         }
     }).collect()
