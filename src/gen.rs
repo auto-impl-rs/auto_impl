@@ -166,6 +166,51 @@ fn gen_fn_type_for_trait(
 
     // We checked for `None` above
     let method = method.unwrap();
+    let sig = &method.sig;
+
+
+    // Check for forbidden modifier of the method
+    if let Some(const_token) = sig.constness {
+        let msg = format!(
+            "the trait '{}' cannot be implemented for Fn-traits: const methods are not allowed",
+            trait_def.ident,
+        );
+
+        const_token.span()
+            .error(msg)
+            .span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+
+        return Err(());
+    }
+
+    if let Some(unsafe_token) = &sig.unsafety {
+        let msg = format!(
+            "the trait '{}' cannot be implemented for Fn-traits: unsafe methods are not allowed",
+            trait_def.ident,
+        );
+
+        unsafe_token.span()
+            .error(msg)
+            .span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+
+        return Err(());
+    }
+
+    if let Some(abi_token) = &sig.abi {
+        let msg = format!(
+            "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
+            trait_def.ident,
+        );
+
+        abi_token.span()
+            .error(msg)
+            .span_note(Span::call_site(), "auto-impl requested here")
+            .emit();
+
+        return Err(());
+    }
 
 
     // =======================================================================
@@ -209,7 +254,9 @@ fn gen_fn_type_for_trait(
     }
 
     // =======================================================================
-    // Generate the Fn-type
+    // Generate the full Fn-type
+
+    // The path to the Fn-trait
     let fn_name = match proxy_type {
         ProxyType::Fn => quote! { ::std::ops::Fn },
         ProxyType::FnMut => quote! { ::std::ops::FnMut },
