@@ -154,7 +154,16 @@ fn items(
 
                 Err(())
             },
-            TraitItem::Verbatim(_) => unimplemented!(),
+            TraitItem::Verbatim(v) => {
+                // I don't quite know when this happens, but it's better to
+                // notify the user with a nice error instead of panicking.
+                v.span()
+                    .error("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
+                    .span_note(Span::call_site(), "auto-impl requested here")
+                    .emit();
+
+                Err(())
+            }
         }
     }).collect()
 }
