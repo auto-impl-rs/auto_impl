@@ -248,11 +248,38 @@ fn gen_fn_type_for_trait(
         _ => panic!("internal error in auto_impl (function contract violation)"),
     };
 
-    let args = TokenStream2::new();
-    let ret = TokenStream2::new();
+    // The return type
+    let ret = &sig.decl.output;
+
+    // The input types as comma separated list. We skip the first argument, as
+    // this is the receiver argument.
+    let mut arg_types = TokenStream2::new();
+    for arg in sig.decl.inputs.iter().skip(1) {
+        match arg {
+            FnArg::Captured(arg) => {
+                let ty = &arg.ty;
+                arg_types.append_all(quote! { #ty , });
+            }
+
+            // Honestly, I'm not sure what this is.
+            FnArg::Ignored(_) => {
+                panic!("ignored argument encountered (auto_impl is confused)");
+            }
+
+            // This can't happen in today's Rust and it's unlikely to change in
+            // the near future.
+            FnArg::Inferred(_) => {
+                panic!("argument with inferred type in trait method");
+            }
+
+            // We skipped the receiver already
+            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {}
+        }
+    }
+
 
     Ok(quote! {
-        #fn_name (#args) #ret
+        #fn_name (#arg_types) #ret
     })
 }
 
@@ -503,15 +530,13 @@ fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2,
             }
 
             // Honestly, I'm not sure what this is.
-            FnArg::Ignored(ty) => {
-                return ty.span()
-                    .error("cannot auto-impl trait, because this argument is ignored")
-                    .emit_with_attr_note();
+            FnArg::Ignored(_) => {
+                panic!("ignored argument encountered (auto_impl is confused)");
             }
 
+            // This can't happen in today's Rust and it's unlikely to change in
+            // the near future.
             FnArg::Inferred(_) => {
-                // This can't happen in today's Rust and it's unlikely to
-                // change in the near future.
                 panic!("argument with inferred type in trait method");
             }
 
