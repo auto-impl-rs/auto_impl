@@ -167,6 +167,8 @@ fn gen_fn_type_for_trait(
     // We checked for `None` above
     let method = method.unwrap();
 
+
+    // =======================================================================
     // Check if the trait can be implemented for the given proxy type
     let self_type = SelfType::from_sig(&method.sig);
     let err = match (self_type, proxy_type) {
@@ -206,7 +208,21 @@ fn gen_fn_type_for_trait(
             .emit();
     }
 
-    unimplemented!()
+    // =======================================================================
+    // Generate the Fn-type
+    let fn_name = match proxy_type {
+        ProxyType::Fn => quote! { ::std::ops::Fn },
+        ProxyType::FnMut => quote! { ::std::ops::FnMut },
+        ProxyType::FnOnce => quote! { ::std::ops::FnOnce },
+        _ => panic!("internal error in auto_impl (function contract violation)"),
+    };
+
+    let args = TokenStream2::new();
+    let ret = TokenStream2::new();
+
+    Ok(quote! {
+        #fn_name (#args) #ret
+    })
 }
 
 /// Generates the implementation of all items of the given trait. These
@@ -308,32 +324,29 @@ fn gen_method_item(
     // but also on the proxy type.
     let name = &sig.ident;
     let body = match self_arg {
+        // Fn proxy types get a special treatment
+        _ if proxy_type.is_fn() => {
+            quote! { self(#args) }
+        }
+
         // No receiver
         SelfType::None => {
-            // The proxy type is a reference, smartpointer or Box, but not Fn*.
+            // The proxy type is a reference, smartpointer or Box.
             let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
             quote! { #proxy_ty_param::#name(#args) }
         }
 
         // Receiver `self` (by value)
         SelfType::Value => {
-            // The proxy type is either Box or Fn*.
-            if *proxy_type == ProxyType::Box {
-                quote! { (*self).#name(#args) }
-            } else {
-                unimplemented!()
-            }
+            // The proxy type is a Box.
+            quote! { (*self).#name(#args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
-            // The proxy type could be anything in the `Ref` case, and `&mut`,
-            // Box or Fn* in the `Mut` case.
-            if proxy_type.is_fn() {
-                unimplemented!()
-            } else {
-                quote! { (**self).#name(#args) }
-            }
+            // The proxy type could be anything in the `Ref` case, and `&mut`
+            // or Box in the `Mut` case.
+            quote! { (**self).#name(#args) }
         }
     };
 
@@ -442,7 +455,9 @@ fn check_receiver_compatible(
         (ProxyType::Fn, _) |
         (ProxyType::FnMut, _) |
         (ProxyType::FnOnce, _) => {
-            unimplemented!()
+            // The Fn-trait being compatible with the receiver was already
+            // checked before (in `gen_fn_type_for_trait()`).
+            Ok(())
         }
 
         _ => Ok(()), // All other combinations are fine
