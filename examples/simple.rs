@@ -13,18 +13,18 @@ trait Foo<'a, X, Y = i32> {
     }
 }
 
-// #[auto_impl(Box)]
-// trait MyTrait<'a, T>
-//     where T: AsRef<str>
-// {
-//     // type Type1;
-//     // type Type2;
+#[auto_impl(Box)]
+trait MyTrait<'a, T>
+    where T: AsRef<str>
+{
+    type Type1;
+    type Type2;
 
-//     // fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String>;
-//     // fn execute2(&self) -> Self::Type2;
-//     // fn execute3(self) -> Self::Type1;
-//     // fn execute4() -> &'static str;
-// }
+    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String>;
+    fn execute2(&self) -> Self::Type2;
+    fn execute3(self) -> Self::Type1;
+    fn execute4() -> &'static str;
+}
 
 fn do_foo<'a, X, T: Foo<'a, X>>(x: T) {
     x.foo(3, true);

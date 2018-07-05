@@ -6,6 +6,7 @@ use proc_macro2::{
 use quote::{TokenStreamExt, ToTokens};
 use syn::{
     Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg, Pat, PatIdent,
+    TraitItemType,
 };
 
 
@@ -137,12 +138,47 @@ fn items(
     trait_def.items.iter().map(|item| {
         match item {
             TraitItem::Const(_) => unimplemented!(),
-            TraitItem::Method(method) => method_item(proxy_type, method, trait_def),
-            TraitItem::Type(_) => unimplemented!(),
+            TraitItem::Method(method) => gen_method_item(proxy_type, method, trait_def),
+            TraitItem::Type(ty) => gen_type_item(proxy_type, ty, trait_def),
             TraitItem::Macro(_) => unimplemented!(),
             TraitItem::Verbatim(_) => unimplemented!(),
         }
     }).collect()
+}
+
+/// Generates the implementation of a associated type item described by `item`.
+/// The implementation is returned as token stream.
+///
+/// If the proxy type is an Fn*-trait, an error is emitted and `Err(())` is
+/// returned.
+fn gen_type_item(
+    proxy_type: &ProxyType,
+    item: &TraitItemType,
+    trait_def: &ItemTrait,
+) -> Result<TokenStream2, ()> {
+    // A trait with associated types cannot be implemented for Fn* types.
+    if proxy_type.is_fn() {
+        let msg = format!(
+            "the trait `{}` cannot be auto-implemented for Fn-traits, because it has associated \
+                types (only traits with a single method can be implemented for Fn-traits)",
+            trait_def.ident,
+        );
+
+        item.span()
+            .error(msg)
+            .span_note(Span::call_site(), "auto-impl for Fn-trait requested here")
+            .emit();
+
+        return Err(());
+    }
+
+    // We simply use the associated type from our type parameter.
+    let assoc_name = &item.ident;
+    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
+
+    Ok(quote ! {
+        type #assoc_name = #proxy_ty_param::#assoc_name;
+    })
 }
 
 /// Generates the implementation of a method item described by `item`. The
@@ -151,7 +187,7 @@ fn items(
 /// This function also performs sanity checks, e.g. whether the proxy type can
 /// be used to implement the method. If any error occurs, the error is
 /// immediately emitted and `Err(())` is returned.
-fn method_item(
+fn gen_method_item(
     proxy_type: &ProxyType,
     item: &TraitItemMethod,
     trait_def: &ItemTrait,
