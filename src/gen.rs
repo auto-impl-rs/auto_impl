@@ -41,7 +41,7 @@ pub(crate) fn gen_impls(
     // One impl for each proxy type
     for proxy_type in proxy_types {
         let header = header(proxy_type, trait_def)?;
-        let items = items(proxy_type, trait_def)?;
+        let items = gen_items(proxy_type, trait_def)?;
 
         tokens.append_all(quote! {
             #header { #( #items )* }
@@ -131,7 +131,7 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
 
 /// Generates the implementation of all items of the given trait. These
 /// implementations together are the body of the `impl` block.
-fn items(
+fn gen_items(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
 ) -> Result<Vec<TokenStream2>, ()> {
