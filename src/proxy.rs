@@ -1,12 +1,6 @@
-use std::{
-    iter::Peekable,
-};
+use std::iter::Peekable;
 
-use proc_macro::{
-    TokenStream, TokenTree,
-    token_stream,
-};
-
+use proc_macro::{token_stream, TokenStream, TokenTree};
 
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,10 +100,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             // Only '&' are allowed. Everything else leads to an error.
             if punct.as_char() != '&' {
                 let msg = format!("unexpected punctuation '{}'. {}", punct, EXPECTED_TEXT);
-                punct.span()
-                    .error(msg)
-                    .note(NOTE_TEXT)
-                    .emit();
+                punct.span().error(msg).note(NOTE_TEXT).emit();
 
                 return Err(());
             }
@@ -158,11 +149,10 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
 // as a "real" macro invocation.
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
     use proc_macro::TokenStream;
+    use std::str::FromStr;
 
-    use super::{ProxyType, parse_types};
-
+    use super::{parse_types, ProxyType};
 
     #[test]
     fn empty() {

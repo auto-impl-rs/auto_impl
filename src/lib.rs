@@ -10,12 +10,7 @@ extern crate proc_macro2;
 extern crate quote;
 extern crate syn;
 
-
-
-use proc_macro::{
-    TokenStream, Diagnostic, Level, Span,
-};
-
+use proc_macro::{Diagnostic, Level, Span, TokenStream};
 
 mod gen;
 mod proxy;

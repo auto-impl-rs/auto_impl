@@ -1,19 +1,12 @@
 use proc_macro::{Diagnostic, Span};
-use proc_macro2::{
-    TokenStream as TokenStream2,
-    Span as Span2,
-};
-use quote::{TokenStreamExt, ToTokens};
+use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    Ident, Lifetime, ItemTrait, TraitItem, TraitItemMethod, FnArg, Pat, PatIdent,
-    TraitItemType, MethodSig,
+    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemMethod,
+    TraitItemType,
 };
 
-
-use crate::{
-    proxy::ProxyType,
-    spanned::Spanned,
-};
+use crate::{proxy::ProxyType, spanned::Spanned};
 
 /// The type parameter used in the proxy type. Usually, one would just use `T`,
 /// but this could conflict with type parameters on the trait.
@@ -80,12 +73,10 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
                 let lifetime = &Lifetime::new(PROXY_LT_PARAM_NAME, Span2::call_site());
                 (quote! { #lifetime, }, quote! { : #lifetime + #trait_path })
             }
-            ProxyType::Box | ProxyType::Rc | ProxyType::Arc => {
-                (quote! {}, quote! { : #trait_path })
-            }
+            ProxyType::Box | ProxyType::Rc | ProxyType::Arc => (quote!{}, quote! { : #trait_path }),
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
                 let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
-                (quote! {}, quote! { : #fn_bound })
+                (quote!{}, quote! { : #fn_bound })
             }
         };
 
@@ -96,13 +87,13 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
             .into_iter()
             .skip(1)    // the opening `<`
             .collect::<Vec<_>>();
-        tts.pop();  // the closing `>`
+        tts.pop(); // the closing `>`
         params.append_all(tts);
 
         // Append proxy type parameter (if there aren't any parameters so far,
         // we need to add a comma first).
         let comma = if params.is_empty() {
-            quote! {}
+            quote!{}
         } else {
             quote! { , }
         };
@@ -154,10 +145,10 @@ fn gen_fn_type_for_trait(
     // If this requirement is not satisfied, we emit an error.
     if method.is_none() || trait_def.items.len() > 1 {
         return trait_def.span()
-            .error("\
-                this trait cannot be auto-implemented for Fn-traits (only traits with exactly one \
-                method and no other items are allowed)\
-            ")
+            .error(
+                "this trait cannot be auto-implemented for Fn-traits (only traits with exactly \
+                 one method and no other items are allowed)"
+            )
             .emit_with_attr_note();
     }
 
@@ -214,9 +205,11 @@ fn gen_fn_type_for_trait(
         }
 
         // We can't impl methods with `&self` receiver for `FnMut`
-        (SelfType::Ref, ProxyType::FnMut) => {
-            Some(("`FnMut`", "a `&self`", " (only `self` and `&mut self` are allowed)"))
-        }
+        (SelfType::Ref, ProxyType::FnMut) => Some((
+            "`FnMut`",
+            "a `&self`",
+            " (only `self` and `&mut self` are allowed)",
+        )),
 
         // Other combinations are fine
         _ => None,
@@ -232,9 +225,7 @@ fn gen_fn_type_for_trait(
             allowed,
         );
 
-        return method.sig.span()
-            .error(msg)
-            .emit_with_attr_note();
+        return method.sig.span().error(msg).emit_with_attr_note();
     }
 
     // =======================================================================
@@ -313,10 +304,10 @@ fn gen_items(
                 // if it adds additional items to the trait. Thus, we have to
                 // give up.
                 mac.span()
-                    .error("\
-                        traits with macro invocations in their bodies are not \
-                        supported by auto_impl\
-                    ")
+                    .error(
+                        "traits with macro invocations in their bodies are not \
+                         supported by auto_impl"
+                    )
                     .emit_with_attr_note()
             },
             TraitItem::Verbatim(v) => {
@@ -455,8 +446,8 @@ fn check_receiver_compatible(
     sig_span: Span,
 ) -> Result<(), ()> {
     match (proxy_type, self_arg) {
-        (ProxyType::Ref, SelfType::Mut) |
-        (ProxyType::Ref, SelfType::Value) => {
+        (ProxyType::Ref, SelfType::Mut)
+        | (ProxyType::Ref, SelfType::Value) => {
             sig_span
                 .error(format!(
                     "the trait `{}` cannot be auto-implemented for immutable references, because \
@@ -479,10 +470,10 @@ fn check_receiver_compatible(
                 .emit_with_attr_note()
         }
 
-        (ProxyType::Rc, SelfType::Mut) |
-        (ProxyType::Rc, SelfType::Value) |
-        (ProxyType::Arc, SelfType::Mut) |
-        (ProxyType::Arc, SelfType::Value) => {
+        (ProxyType::Rc, SelfType::Mut)
+        | (ProxyType::Rc, SelfType::Value)
+        | (ProxyType::Arc, SelfType::Mut)
+        | (ProxyType::Arc, SelfType::Value) => {
             let ptr_name = if *proxy_type == ProxyType::Rc {
                 "Rc"
             } else {
@@ -501,9 +492,7 @@ fn check_receiver_compatible(
                 .emit_with_attr_note()
         }
 
-        (ProxyType::Fn, _) |
-        (ProxyType::FnMut, _) |
-        (ProxyType::FnOnce, _) => {
+        (ProxyType::Fn, _) | (ProxyType::FnMut, _) | (ProxyType::FnOnce, _) => {
             // The Fn-trait being compatible with the receiver was already
             // checked before (in `gen_fn_type_for_trait()`).
             Ok(())
@@ -530,15 +519,16 @@ fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2,
                     mutability: None,
                     ident,
                     subpat: None,
-                }) = &arg.pat {
+                }) = &arg.pat
+                {
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
                 } else {
                     return arg.pat.span()
-                        .error("\
-                            argument patterns are not supported by #[auto-impl]. Please use \
-                            a simple name (not `_`).\
-                        ")
+                        .error(
+                            "argument patterns are not supported by #[auto-impl]. Please use \
+                             a simple name (not `_`)."
+                        )
                         .emit_with_attr_note();
                 }
             }
