@@ -1,3 +1,6 @@
+//! A proc-macro attribute for automatically implementing a trait for
+//! references, some common smart pointers and closures.
+
 #![feature(crate_in_paths)]
 #![feature(extern_prelude)]
 #![feature(in_band_lifetimes)]
@@ -17,6 +20,7 @@ mod proxy;
 mod spanned;
 
 
+/// See crate documentation for more information.
 #[proc_macro_attribute]
 pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     // We use the closure trick to catch errors until the `catch` syntax is
