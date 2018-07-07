@@ -16,14 +16,6 @@ pub(crate) enum ProxyType {
 }
 
 impl ProxyType {
-    // TODO
-    // pub(crate) fn is_ref(&self) -> bool {
-    //     match *self {
-    //         ProxyType::Ref | ProxyType::RefMut => true,
-    //         _ => false,
-    //     }
-    // }
-
     pub(crate) fn is_fn(&self) -> bool {
         match *self {
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => true,
