@@ -7,7 +7,7 @@ use auto_impl::auto_impl;
 
 #[auto_impl(Fn)]
 trait Foo {
-    fn foo(&self, x: i32, foo: bool) -> f32;
+    fn foo<'a>(&self, x: &'a i32) -> f32;
     // fn foo2(&self, _s: String) -> bool {
     //     true
     // }
@@ -27,11 +27,11 @@ trait Foo {
 // }
 
 fn do_foo<T: Foo>(x: T) {
-    x.foo(3, true);
+    x.foo(&3);
 }
 
 
 
 fn main() {
-    do_foo(|_: i32, _: bool| 0.0);
+    do_foo(|_: &i32| 0.0);
 }

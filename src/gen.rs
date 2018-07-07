@@ -251,6 +251,20 @@ fn gen_fn_type_for_trait(
     // The return type
     let ret = &sig.decl.output;
 
+    // Now it get's a bit complicated. The types of the function signature
+    // could contain "local" lifetimes, meaning that they are not declared in
+    // the trait definition (or are `'static`). We need to extract all local
+    // lifetimes to declare them with HRTB (e.g. `for<'a>`).
+    //
+    // In Rust 2015 that was easy: we could just take the lifetimes explicitly
+    // declared in the function signature. Those were the local lifetimes.
+    // Unfortunately, with in-band lifetimes, things get more complicated. We
+    // need to take a look at all lifetimes inside the types (arbitrarily deep)
+    // and check if they are local or not.
+    //
+    // TODO: Implement this check for in-band lifetimes!
+    let local_lifetimes = sig.decl.generics.lifetimes();
+
     // The input types as comma separated list. We skip the first argument, as
     // this is the receiver argument.
     let mut arg_types = TokenStream2::new();
@@ -263,7 +277,7 @@ fn gen_fn_type_for_trait(
 
             // Honestly, I'm not sure what this is.
             FnArg::Ignored(_) => {
-                panic!("ignored argument encountered (auto_impl is confused)");
+                panic!("unexpected ignored argument (auto_impl is confused)");
             }
 
             // This can't happen in today's Rust and it's unlikely to change in
@@ -279,7 +293,7 @@ fn gen_fn_type_for_trait(
 
 
     Ok(quote! {
-        #fn_name (#arg_types) #ret
+        for< #(#local_lifetimes),* > #fn_name (#arg_types) #ret
     })
 }
 
