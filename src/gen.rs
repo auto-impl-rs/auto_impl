@@ -48,6 +48,7 @@ pub(crate) fn gen_impls(
 /// type.
 fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2, ()> {
     let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
+    let proxy_lt_param = &Lifetime::new(PROXY_LT_PARAM_NAME, Span2::call_site());
 
     // Generate generics for impl positions from trait generics.
     let (impl_generics, trait_generics, where_clause) = trait_def.generics.split_for_impl();
@@ -70,8 +71,7 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
         // Determine if our proxy type needs a lifetime parameter
         let (mut params, ty_bounds) = match proxy_type {
             ProxyType::Ref | ProxyType::RefMut => {
-                let lifetime = &Lifetime::new(PROXY_LT_PARAM_NAME, Span2::call_site());
-                (quote! { #lifetime, }, quote! { : #lifetime + #trait_path })
+                (quote! { #proxy_lt_param, }, quote! { : #proxy_lt_param + #trait_path })
             }
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => (quote!{}, quote! { : #trait_path }),
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
@@ -88,11 +88,11 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
             .skip(1)    // the opening `<`
             .collect::<Vec<_>>();
         tts.pop(); // the closing `>`
-        params.append_all(tts);
+        params.append_all(&tts);
 
         // Append proxy type parameter (if there aren't any parameters so far,
         // we need to add a comma first).
-        let comma = if params.is_empty() {
+        let comma = if params.is_empty() || tts.is_empty() {
             quote!{}
         } else {
             quote! { , }
@@ -106,8 +106,8 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
     // The tokens after `for` in the impl header (the type the trait is
     // implemented for).
     let self_ty = match *proxy_type {
-        ProxyType::Ref      => quote! { &'a #proxy_ty_param },
-        ProxyType::RefMut   => quote! { &'a mut #proxy_ty_param },
+        ProxyType::Ref      => quote! { & #proxy_lt_param #proxy_ty_param },
+        ProxyType::RefMut   => quote! { & #proxy_lt_param mut #proxy_ty_param },
         ProxyType::Arc      => quote! { ::std::sync::Arc<#proxy_ty_param> },
         ProxyType::Rc       => quote! { ::std::rc::Rc<#proxy_ty_param> },
         ProxyType::Box      => quote! { ::std::boxed::Box<#proxy_ty_param> },
@@ -252,6 +252,10 @@ fn gen_fn_type_for_trait(
     // Unfortunately, with in-band lifetimes, things get more complicated. We
     // need to take a look at all lifetimes inside the types (arbitrarily deep)
     // and check if they are local or not.
+    //
+    // In cases where lifetimes are omitted (e.g. `&str`), we don't have a
+    // problem. If we just translate that to `for<> Fn(&str)`, it's fine: all
+    // omitted lifetimes in an `Fn()` type are automatically declared as HRTB.
     //
     // TODO: Implement this check for in-band lifetimes!
     let local_lifetimes = sig.decl.generics.lifetimes();
