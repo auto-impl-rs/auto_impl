@@ -1,7 +1,10 @@
 [package]
 name = "auto_impl"
 version = "0.2.0"
-authors = ["Ashley Mannix <ashleymannix@live.com.au>"]
+authors = [
+    "Ashley Mannix <ashleymannix@live.com.au>",
+    "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>",
+]
 license = "MIT"
 description = "Automatically implement traits for common smart pointers and closures"
 repository = "https://github.com/KodrAus/auto_impl"
