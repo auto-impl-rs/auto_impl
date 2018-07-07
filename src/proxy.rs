@@ -136,15 +136,12 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
     Ok(ty)
 }
 
-// Right now, these tests fail because `TokenStream::from_str` panics due to
-// an internal error. It is only supposed to be called with a valid session,
-// as a "real" macro invocation.
+
 #[cfg(test)]
 mod test {
     use proc_macro::TokenStream;
-    use std::str::FromStr;
 
-    use super::{parse_types, ProxyType};
+    use super::parse_types;
 
     #[test]
     fn empty() {
@@ -154,11 +151,8 @@ mod test {
         );
     }
 
-    #[test]
-    fn single_ref() {
-        assert_eq!(
-            parse_types(TokenStream::from_str("&").unwrap()),
-            Ok(vec![ProxyType::Ref])
-        );
-    }
+    // Right now, we can't really write useful tests. Many functions from
+    // `proc_macro` use a compiler internal session. This session is only valid
+    // when we were actually called as a proc macro. We need to add tests once
+    // this limitation of `proc_macro` is fixed.
 }
