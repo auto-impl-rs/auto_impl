@@ -3,7 +3,7 @@ use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
     FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemMethod,
-    TraitItemType,
+    TraitItemType, TraitItemConst,
 };
 
 use crate::{proxy::ProxyType, spanned::Spanned};
@@ -300,7 +300,7 @@ fn gen_items(
 ) -> Result<Vec<TokenStream2>, ()> {
     trait_def.items.iter().map(|item| {
         match item {
-            TraitItem::Const(_) => unimplemented!(),
+            TraitItem::Const(c) => gen_const_item(proxy_type, c, trait_def),
             TraitItem::Method(method) => gen_method_item(proxy_type, method, trait_def),
             TraitItem::Type(ty) => gen_type_item(proxy_type, ty, trait_def),
             TraitItem::Macro(mac) => {
@@ -325,7 +325,39 @@ fn gen_items(
     }).collect()
 }
 
-/// Generates the implementation of a associated type item described by `item`.
+/// Generates the implementation of an associated const item described by
+/// `item`. The implementation is returned as token stream.
+///
+/// If the proxy type is an Fn*-trait, an error is emitted and `Err(())` is
+/// returned.
+fn gen_const_item(
+    proxy_type: &ProxyType,
+    item: &TraitItemConst,
+    trait_def: &ItemTrait,
+) -> Result<TokenStream2, ()> {
+    // A trait with associated consts cannot be implemented for Fn* types.
+    if proxy_type.is_fn() {
+        return item.span()
+            .error(format!(
+                "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
+                    associated consts (only traits with a single method can be implemented \
+                    for Fn-traits)",
+                trait_def.ident,
+            ))
+            .emit_with_attr_note();
+    }
+
+    // We simply use the associated const from our type parameter.
+    let const_name = &item.ident;
+    let const_ty = &item.ty;
+    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
+
+    Ok(quote ! {
+        const #const_name: #const_ty = #proxy_ty_param::#const_name;
+    })
+}
+
+/// Generates the implementation of an associated type item described by `item`.
 /// The implementation is returned as token stream.
 ///
 /// If the proxy type is an Fn*-trait, an error is emitted and `Err(())` is
