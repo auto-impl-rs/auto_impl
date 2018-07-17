@@ -4,7 +4,8 @@
 #![feature(crate_in_paths)]
 #![feature(extern_prelude)]
 #![feature(in_band_lifetimes)]
-#![feature(proc_macro)]
+#![feature(proc_macro_span)]
+#![feature(proc_macro_diagnostic)]
 
 
 extern crate proc_macro;

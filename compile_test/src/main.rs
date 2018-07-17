@@ -2,7 +2,7 @@
 Try running `cargo expand` on this crate to see the output of `#[auto_impl]`.
 */
 
-#![feature(proc_macro)]
+#![feature(use_extern_macros)]
 
 extern crate auto_impl;
 
