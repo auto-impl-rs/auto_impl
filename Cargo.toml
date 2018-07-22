@@ -23,3 +23,12 @@ proc-macro = true
 proc-macro2 = { version = "0.4.6", features = ["nightly"] }
 quote = "0.6.3"
 syn = { version = "0.14.4", features = ["full"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+test-cli = { path = "../test-cli" }
+
+[[test]]
+name = "compile-fail"
+path = "tests/compile-fail/runner.rs"
+harness = false
