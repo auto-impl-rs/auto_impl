@@ -10,6 +10,7 @@ use std::{
 
 use libtest_mimic::{run_tests, Arguments, Test, Outcome};
 
+
 fn main() {
     let args = Arguments::from_args();
 
@@ -38,9 +39,9 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
                 .file_type()
                 .expect("failed to determine entry type");
 
-            if file_type.is_dir() {
+            if file_type.is_file() {
                 let path = entry.path();
-                let name = path.file_name().unwrap().to_string_lossy().into_owned();
+                let name = path.file_stem().unwrap().to_string_lossy().into_owned();
                 Some(Test {
                     name,
                     kind: "compile-fail".into(),
@@ -58,35 +59,15 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
 /// Run the single test in the given directory.
 fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> Outcome {
     // Find .rs files and determine which file to use.
-    let dir = &test.data;
-    let main_path = dir.join("main.rs");
-    let lib_path = dir.join("lib.rs");
-
-    let main_exists = main_path.exists() && main_path.is_file();
-    let lib_exists = lib_path.exists() && lib_path.is_file();
-
-    let (path, crate_type) = match (main_exists, lib_exists) {
-        (false, false) => {
-            panic!("No 'main.rs' or 'lib.rs' file found in '{}'", dir.display());
-        }
-        (true, true) => {
-            panic!(
-                "'main.rs' AND 'lib.rs' file found in '{}' (only one is allowed!)",
-                dir.display()
-            );
-        }
-        (true, false) => (main_path, "bin"),
-        (false, true) => (lib_path, "lib"),
-    };
-
+    let path = &test.data;
 
     // Execute `rustc` and capture its outputs
     let mut extern_value = OsString::from("auto_impl=");
     extern_value.push(dep_path);
     let output = Command::new("rustc")
         .arg(&path)
-        .args(&["--crate-type", crate_type])
-        .args(&["-Z", "no-trans"])
+        .args(&["--crate-type", "lib"])
+        .args(&["-Z", "no-codegen"])
         .arg("--extern")
         .arg(&extern_value)
         .output()

@@ -31,5 +31,5 @@ libtest-mimic = { git = "https://github.com/LukasKalbertodt/libtest-mimic" }
 
 [[test]]
 name = "compile-fail"
-path = "tests/compile-fail/runner.rs"
+path = "tests/compile_fail.rs"
 harness = false
