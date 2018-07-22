@@ -1,4 +1,4 @@
-extern crate test_cli;
+extern crate libtest_mimic;
 extern crate build_plan;
 
 use std::{
@@ -8,7 +8,7 @@ use std::{
     process::Command,
 };
 
-use test_cli::{run_tests, Arguments, Test, TestOutcome};
+use libtest_mimic::{run_tests, Arguments, Test, Outcome};
 
 fn main() {
     let args = Arguments::from_args();
@@ -16,7 +16,8 @@ fn main() {
     let dep_path = get_dep_path();
 
     let tests = collect_tests();
-    run_tests(&args, &tests, |test| run_test(test, &dep_path));
+    run_tests(&args, tests, |test| run_test(test, &dep_path))
+        .exit();
 }
 
 fn collect_tests() -> Vec<Test<PathBuf>> {
@@ -43,6 +44,8 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
                 Some(Test {
                     name,
                     kind: "compile-fail".into(),
+                    is_ignored: false,
+                    is_bench: false,
                     data: path,
                 })
             } else {
@@ -53,7 +56,7 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
 }
 
 /// Run the single test in the given directory.
-fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> TestOutcome {
+fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> Outcome {
     // Find .rs files and determine which file to use.
     let dir = &test.data;
     let main_path = dir.join("main.rs");
@@ -64,15 +67,13 @@ fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> TestOutcome {
 
     let (path, crate_type) = match (main_exists, lib_exists) {
         (false, false) => {
-            println!("No 'main.rs' or 'lib.rs' file found in '{}'", dir.display());
-            return TestOutcome::Failed;
+            panic!("No 'main.rs' or 'lib.rs' file found in '{}'", dir.display());
         }
         (true, true) => {
-            println!(
+            panic!(
                 "'main.rs' AND 'lib.rs' file found in '{}' (only one is allowed!)",
                 dir.display()
             );
-            return TestOutcome::Failed;
         }
         (true, false) => (main_path, "bin"),
         (false, true) => (lib_path, "lib"),
@@ -95,9 +96,11 @@ fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> TestOutcome {
     // TODO: check stderr/stdout if requested
 
     if output.status.success() {
-        TestOutcome::Failed
+        Outcome::Failed {
+            msg: Some("Expected compiler error, but file got compiled without error!".into())
+        }
     } else {
-        TestOutcome::Passed
+        Outcome::Passed
     }
 }
 
