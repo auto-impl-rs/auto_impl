@@ -12,6 +12,7 @@ documentation = "https://docs.rs/auto_impl/"
 keywords = ["plugin"]
 categories = ["development-tools"]
 readme = "README.md"
+autotests = true
 
 [badges]
 travis-ci = { repository = "KodrAus/auto_impl" }
@@ -25,8 +26,8 @@ quote = "0.6.3"
 syn = { version = "0.14.4", features = ["full"] }
 
 [dev-dependencies]
-serde_json = "1.0"
-test-cli = { path = "../test-cli" }
+build-plan = "0.1.1"
+test-cli = { git = "https://github.com/LukasKalbertodt/test-cli" }
 
 [[test]]
 name = "compile-fail"

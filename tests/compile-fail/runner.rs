@@ -1,5 +1,5 @@
 extern crate test_cli;
-extern crate serde_json;
+extern crate build_plan;
 
 use std::{
     ffi::OsString,
@@ -13,7 +13,7 @@ use test_cli::{run_tests, Arguments, Test, TestOutcome};
 fn main() {
     let args = Arguments::from_args();
 
-    let dep_path = find_dep_path();
+    let dep_path = get_dep_path();
 
     let tests = collect_tests();
     run_tests(&args, &tests, |test| run_test(test, &dep_path));
@@ -101,9 +101,7 @@ fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> TestOutcome {
     }
 }
 
-fn find_dep_path() -> PathBuf {
-    let msg = "unexpected Cargo build-plan output";
-
+fn get_dep_path() -> PathBuf {
     // Obtain the build plan from `cargo build`. This JSON plan will tell us
     // several things, including the path of the output of `auto_impl` (usually
     // an .so file on Linux).
@@ -112,26 +110,17 @@ fn find_dep_path() -> PathBuf {
         .output()
         .expect("failed to run `cargo build`");
 
-    // Parse output as JSON and navigate through it to get the desired value.
-    // We use `expect()` a lot, but this is fine: if the build plan ever
-    // changes, we need to change this script too.
-    let v: serde_json::Value = serde_json::from_slice(&output.stdout).expect(msg);
-    let outputs = v.as_object()
-        .expect(msg)
-        .get("invocations")
-        .expect(msg)
-        .as_array()
-        .expect(msg)
-        .iter()
-        .map(|elem| elem.as_object().expect(msg))
-        .find(|obj| obj.get("package_name").expect(msg) == "auto_impl")
-        .expect(msg)
-        .get("outputs")
-        .expect(msg)
-        .as_array()
-        .expect(msg);
+    // Parse JSON.
+    let plan = build_plan::BuildPlan::from_cargo_output(&output.stdout)
+        .expect("unexpected Cargo build-plan output");
+
+    // Get the path of our library artifact.
+    let mut outputs = plan.invocations.into_iter()
+        .find(|inv| inv.package_name == "auto_impl")
+        .expect("`auto_impl` invocation not found in build plan")
+        .outputs;
 
     assert!(outputs.len() == 1);
 
-    outputs[0].as_str().expect(msg).into()
+    outputs.remove(0).into()
 }
