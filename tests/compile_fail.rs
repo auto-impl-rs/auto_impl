@@ -1,8 +1,13 @@
+//! Test script to make sure some files can't be compiled
+//!
+//! This file only contains the logic of compile-fail tests. The actual tests
+//! are in the directory `compile-fail`.
+
 extern crate libtest_mimic;
 extern crate build_plan;
 
 use std::{
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -12,15 +17,20 @@ use libtest_mimic::{run_tests, Arguments, Test, Outcome};
 
 
 fn main() {
+    // Parse CLI args
     let args = Arguments::from_args();
 
+    // Get the path of the `auto_impl` manifest
     let dep_path = get_dep_path();
 
+    // Run all tests and exit the application appropriately
     let tests = collect_tests();
     run_tests(&args, tests, |test| run_test(test, &dep_path))
         .exit();
 }
 
+/// Iterates through the `compile-fail` folder and collects all `.rs` files as
+/// tests.
 fn collect_tests() -> Vec<Test<PathBuf>> {
     // Get current path
     let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR")
@@ -39,8 +49,10 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
                 .file_type()
                 .expect("failed to determine entry type");
 
-            if file_type.is_file() {
-                let path = entry.path();
+            // If this entry is a file with the extension `.rs`, we treat it as
+            // test.
+            let path = entry.path();
+            if file_type.is_file() && path.extension() == Some(OsStr::new("rs")) {
                 let name = path.file_stem().unwrap().to_string_lossy().into_owned();
                 Some(Test {
                     name,
@@ -56,9 +68,8 @@ fn collect_tests() -> Vec<Test<PathBuf>> {
         .collect()
 }
 
-/// Run the single test in the given directory.
+/// Runs the the given test.
 fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> Outcome {
-    // Find .rs files and determine which file to use.
     let path = &test.data;
 
     // Execute `rustc` and capture its outputs
@@ -73,7 +84,6 @@ fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> Outcome {
         .output()
         .expect("failed to run `rustc`");
 
-
     // TODO: check stderr/stdout if requested
 
     if output.status.success() {
@@ -85,11 +95,17 @@ fn run_test(test: &Test<PathBuf>, dep_path: &Path) -> Outcome {
     }
 }
 
+/// Obtains the path of the `auto_impl` artifact.
+///
+/// This is the biggest problem of this test script. This function uses Cargo's
+/// build-plan feature which is not yet stable. It's surprisingly difficult to
+/// get the path of the artifact. Another possibility would be to create small
+/// temporary Cargo projects. But this is also not a good solution.
 fn get_dep_path() -> PathBuf {
     // Obtain the build plan from `cargo build`. This JSON plan will tell us
     // several things, including the path of the output of `auto_impl` (usually
     // an .so file on Linux).
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO"))
         .args(&["build", "-Z", "unstable-options", "--build-plan"])
         .output()
         .expect("failed to run `cargo build`");
