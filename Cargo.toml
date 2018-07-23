@@ -27,7 +27,7 @@ syn = { version = "0.14.4", features = ["full"] }
 
 [dev-dependencies]
 build-plan = "0.1.1"
-libtest-mimic = { git = "https://github.com/LukasKalbertodt/libtest-mimic" }
+libtest-mimic = "0.1.0"
 
 [[test]]
 name = "compile-fail"
