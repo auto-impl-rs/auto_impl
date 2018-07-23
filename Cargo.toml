@@ -33,3 +33,8 @@ libtest-mimic = "0.1.0"
 name = "compile-fail"
 path = "tests/compile-fail.rs"
 harness = false
+
+[[test]]
+name = "compile-pass"
+path = "tests/compile-pass.rs"
+harness = false
