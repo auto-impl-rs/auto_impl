@@ -1,12 +1,13 @@
-//! Test script to make sure some files can't be compiled
+//! Test script to make sure some files can't be compiled.
 //!
 //! This file only contains the logic of compile-fail tests. The actual tests
-//! are in the directory `compile-fail`.
+//! are in the directory `compile-fail/`.
 
 extern crate libtest_mimic;
 extern crate build_plan;
 
 use std::{
+    env,
     ffi::{OsStr, OsString},
     fs,
     path::{Path, PathBuf},
@@ -33,10 +34,15 @@ fn main() {
 /// tests.
 fn collect_tests() -> Vec<Test<PathBuf>> {
     // Get current path
-    let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set");
+    let manifest_dir: PathBuf = match std::env::var_os("CARGO_MANIFEST_DIR") {
+        Some(dir) => dir.into(),
+        None => {
+            println!("CARGO_MANIFEST_DIR not set, falling back to current directory");
+            env::current_dir().expect("invalid current dir").into()
+        }
+    };
 
-    let test_dir = Path::new(&manifest_dir)
+    let test_dir = manifest_dir
         .join("tests")
         .join("compile-fail");
 
