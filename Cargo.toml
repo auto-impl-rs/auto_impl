@@ -31,5 +31,5 @@ libtest-mimic = "0.1.0"
 
 [[test]]
 name = "compile-fail"
-path = "tests/compile_fail.rs"
+path = "tests/compile-fail.rs"
 harness = false
