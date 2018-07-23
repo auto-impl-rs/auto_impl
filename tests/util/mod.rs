@@ -41,21 +41,21 @@ pub(crate) fn get_dep_path() -> PathBuf {
     outputs.remove(0).into()
 }
 
-
-
-/// Iterates through the given folder and collects all `.rs` files as
-/// tests. The folder name also serves as "kind" of the tests.
-pub(crate) fn collect_tests(dir: &str) -> Vec<Test<PathBuf>> {
-    // Get current path
-    let manifest_dir: PathBuf = match env::var_os("CARGO_MANIFEST_DIR") {
+fn get_manifest_path() -> PathBuf {
+    match env::var_os("CARGO_MANIFEST_DIR") {
         Some(dir) => dir.into(),
         None => {
             println!("CARGO_MANIFEST_DIR not set, falling back to current directory");
             env::current_dir().expect("invalid current dir").into()
         }
-    };
+    }
+}
 
-    let test_dir = manifest_dir
+
+/// Iterates through the given folder and collects all `.rs` files as
+/// tests. The folder name also serves as "kind" of the tests.
+pub(crate) fn collect_tests(dir: &str) -> Vec<Test<PathBuf>> {
+    let test_dir = get_manifest_path()
         .join("tests")
         .join(dir);
 
@@ -92,15 +92,27 @@ pub(crate) fn collect_tests(dir: &str) -> Vec<Test<PathBuf>> {
 /// The output is captured and returned. The `dep_path` is used to pass a
 /// correct `--extern` flag.
 pub(crate) fn run_rustc(file_path: &Path, dep_path: &Path) -> process::Output {
+    // Build value for `--extern`
     let mut extern_value = OsString::from("auto_impl=");
     extern_value.push(dep_path);
 
+    // Build value for `--out-dir`
+    let out_dir = get_manifest_path()
+        .join("target")
+        .join("compile-test");
+
+    if !out_dir.exists() {
+        fs::create_dir(&out_dir).expect("unable to create folder in target/");
+    }
+
+    // Execute rustc
     Command::new("rustc")
         .arg(file_path)
         .args(&["--crate-type", "lib"])
         .args(&["-Z", "no-codegen"])
-        .arg("--extern")
-        .arg(&extern_value)
+        .args(&["--emit", "metadata"])
+        .arg("--out-dir").arg(&out_dir)
+        .arg("--extern").arg(&extern_value)
         .output()
         .expect("failed to run `rustc`")
 }
