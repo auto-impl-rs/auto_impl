@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use proc_macro::Span;
 use proc_macro2::Span as Span2;
 use syn::{
     Ident, ItemTrait, Lifetime, Block,
@@ -70,10 +71,15 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     visit_item_trait(&mut visitor, trait_def);
 
 
+    fn param_span() -> Span2 {
+        // TODO: change for stable builds
+        Span::def_site().into()
+    }
+
     fn char_to_ident(c: u8) -> Ident {
         let arr = [c];
         let s = ::std::str::from_utf8(&arr).unwrap();
-        Ident::new(s, Span2::call_site())
+        Ident::new(s, param_span())
     }
 
     // Find suitable type name (T..=Z and A..=S)
@@ -81,15 +87,15 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
         .chain(b'A'..=b'S')
         .map(char_to_ident)
         .find(|i| !visitor.ty_names.contains(i))
-        .unwrap_or_else(|| Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site()));
+        .unwrap_or_else(|| Ident::new(PROXY_TY_PARAM_NAME, param_span()));
 
     // Find suitable lifetime name ('a..='z)
     let lt_name = (b'a'..=b'z')
         .map(char_to_ident)
         .find(|i| !visitor.lt_names.contains(i))
-        .unwrap_or_else(|| Ident::new(PROXY_LT_PARAM_NAME, Span2::call_site()));
+        .unwrap_or_else(|| Ident::new(PROXY_LT_PARAM_NAME, param_span()));
     let lt = Lifetime {
-        apostrophe: Apostrophe::new(Span2::call_site()),
+        apostrophe: Apostrophe::new(param_span()),
         ident: lt_name,
     };
 
