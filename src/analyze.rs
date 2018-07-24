@@ -1,12 +1,25 @@
 use std::collections::HashSet;
 
-#[allow(unused_imports)] // TODO
+use proc_macro2::Span as Span2;
 use syn::{
-    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemMethod,
-    TraitItemType, TraitItemConst, TypeParamBound, Type, Generics, ArgSelfRef, ReturnType, Path,
-    Member, PathArguments, GenericArgument, LifetimeDef, Block,
+    Ident, ItemTrait, Lifetime, Block,
     visit::{Visit, visit_item_trait},
 };
+
+
+/// The type parameter used in the proxy type. Usually, one would just use `T`,
+/// but this could conflict with type parameters on the trait.
+///
+/// Why do we have to care about this? Why about hygiene? In the first version
+/// of stable proc_macros, only call site spans are included. That means that
+/// we cannot generate spans that do not conflict with any other ident the user
+/// wrote. Once proper hygiene is available to proc_macros, this should be
+/// changed.
+const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
+
+/// The lifetime parameter used in the proxy type if the proxy type is `&` or
+/// `&mut`. For more information see `PROXY_TY_PARAM_NAME`.
+const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 
 
 /// We need to introduce our own type and lifetime parameter. Regardless of
@@ -16,20 +29,14 @@ use syn::{
 ///
 /// This function searches for names that we can use. Such a name must not
 /// conflict with any other name we'll use in the `impl` block. Luckily, we
-/// know all those names in advance. Names we'll (possibly) use:
-/// - the trait name
-/// - any type/lifetime parameters of the trait
-/// - super-trait names
-/// - any names used in any of:
-///   - trait method signatures (excluding body of default methods!)
-///   - associated types (name and parameters, in the case of GATs)
-///   - associated consts (name and type)
+/// know all those names in advance.
 ///
-/// The idea is to collect all names used in any of the things listed above,
-/// store them in a set and later check which name we can use. We don't collect
-/// any "special" names like `'static` or `?Sized`, as we are not trying to
-/// use those for our parameters anyway.
-pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> Result<(), ()> {
+/// The idea is to collect all names that might conflict with our names, store
+/// them in a set and later check which name we can use. If we can't use a simple
+/// name, we'll use the ugly `PROXY_TY_PARAM_NAME` and `PROXY_LT_PARAM_NAME`.
+///
+/// This method returns two idents: (type_parameter, lifetime_parameter).
+pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Ident) {
     // Define the visitor that just collects names
     struct IdentCollector<'ast> {
         ty_names: HashSet<&'ast Ident>,
@@ -41,6 +48,9 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> Result<(), ()>
             self.ty_names.insert(i);
         }
 
+        // We overwrite this to make sure to put lifetime names into
+        // `lt_names`. We also don't recurse, so `visit_ident` won't be called
+        // for lifetime names.
         fn visit_lifetime(&mut self, lt: &'ast Lifetime) {
             self.lt_names.insert(&lt.ident);
         }
@@ -58,8 +68,25 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> Result<(), ()>
     };
     visit_item_trait(&mut visitor, trait_def);
 
-    println!("{:#?}", visitor.ty_names.into_iter().map(|i| i.to_string()).collect::<Vec<_>>());
-    println!("{:#?}", visitor.lt_names.into_iter().map(|i| i.to_string()).collect::<Vec<_>>());
 
-    Ok(())
+    fn char_to_ident(c: u8) -> Ident {
+        let arr = [c];
+        let s = ::std::str::from_utf8(&arr).unwrap();
+        Ident::new(s, Span2::call_site())
+    }
+
+    // Find suitable type name (T..=Z and A..=S)
+    let ty_name = (b'T'..=b'Z')
+        .chain(b'A'..=b'S')
+        .map(char_to_ident)
+        .find(|i| !visitor.ty_names.contains(i))
+        .unwrap_or_else(|| Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site()));
+
+    // Find suitable lifetime name ('a..='z)
+    let lt_name = (b'a'..=b'z')
+        .map(char_to_ident)
+        .find(|i| !visitor.lt_names.contains(i))
+        .unwrap_or_else(|| Ident::new(PROXY_LT_PARAM_NAME, Span2::call_site()));
+
+    (ty_name, lt_name)
 }

@@ -36,7 +36,7 @@ pub(crate) fn gen_impls(
 ) -> Result<::proc_macro::TokenStream, ()> {
     let mut tokens = TokenStream2::new();
 
-    find_suitable_param_names(trait_def)?;
+    find_suitable_param_names(trait_def);
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
