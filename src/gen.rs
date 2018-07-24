@@ -7,6 +7,7 @@ use syn::{
 };
 
 use crate::{
+    analyze::{find_suitable_param_names},
     diag::DiagnosticExt,
     proxy::ProxyType,
     spanned::Spanned
@@ -34,6 +35,8 @@ pub(crate) fn gen_impls(
     trait_def: &syn::ItemTrait,
 ) -> Result<::proc_macro::TokenStream, ()> {
     let mut tokens = TokenStream2::new();
+
+    find_suitable_param_names(trait_def)?;
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
