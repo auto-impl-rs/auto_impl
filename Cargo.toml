@@ -17,11 +17,15 @@ autotests = true
 [badges]
 travis-ci = { repository = "KodrAus/auto_impl" }
 
+
 [lib]
 proc-macro = true
 
+[features]
+nightly = ["proc-macro2/nightly"]
+
 [dependencies]
-proc-macro2 = { version = "0.4.6", features = ["nightly"] }
+proc-macro2 = { version = "0.4.6" }
 quote = "0.6.3"
 syn = { version = "0.14.4", features = ["full"] }
 

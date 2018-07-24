@@ -27,11 +27,21 @@ impl<T: ToTokens> Spanned for T {
         if tokens.is_empty() {
             Span::call_site()
         } else {
-            let mut iter = tokens.into_iter();
-            let mut span = iter.next().unwrap().span();
-            if let Some(last) = iter.last() {
-                span = span.join(last.span()).unwrap();
-            }
+            // If we're on nightly, we can create a correct span. Otherwise we
+            // just point to the first token.
+            #[cfg(feature = "nightly")]
+            let span = {
+                let mut iter = tokens.into_iter();
+                let mut span = iter.next().unwrap().span();
+                if let Some(last) = iter.last() {
+                    span = span.join(last.span()).unwrap();
+                }
+                span
+            };
+
+            #[cfg(not(feature = "nightly"))]
+            let span = tokens.into_iter().next().unwrap().span();
+
             span
         }
     }

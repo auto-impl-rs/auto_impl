@@ -2,6 +2,8 @@ use std::iter::Peekable;
 
 use proc_macro::{token_stream, TokenStream, TokenTree};
 
+use diag::SpanExt;
+
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProxyType {
@@ -72,7 +74,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
     let ty = match iter.next().unwrap() {
         TokenTree::Group(group) => {
             group.span()
-                .error(format!("unexpected group. {}", EXPECTED_TEXT))
+                .err(format!("unexpected group. {}", EXPECTED_TEXT))
                 .note(NOTE_TEXT)
                 .emit();
 
@@ -81,7 +83,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
 
         TokenTree::Literal(lit) => {
             lit.span()
-                .error(format!("unexpected literal. {}", EXPECTED_TEXT))
+                .err(format!("unexpected literal. {}", EXPECTED_TEXT))
                 .note(NOTE_TEXT)
                 .emit();
 
@@ -92,7 +94,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             // Only '&' are allowed. Everything else leads to an error.
             if punct.as_char() != '&' {
                 let msg = format!("unexpected punctuation '{}'. {}", punct, EXPECTED_TEXT);
-                punct.span().error(msg).note(NOTE_TEXT).emit();
+                punct.span().err(msg).note(NOTE_TEXT).emit();
 
                 return Err(());
             }
@@ -123,7 +125,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
                 _ => {
                     let msg = format!("unexpected '{}'. {}", ident, EXPECTED_TEXT);
                     ident.span()
-                        .error(msg)
+                        .err(msg)
                         .note(NOTE_TEXT)
                         .emit();
 
