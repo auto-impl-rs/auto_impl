@@ -1,5 +1,5 @@
 use proc_macro::Span;
-use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
     FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemMethod,
@@ -13,19 +13,6 @@ use crate::{
     spanned::Spanned
 };
 
-/// The type parameter used in the proxy type. Usually, one would just use `T`,
-/// but this could conflict with type parameters on the trait.
-///
-/// Why do we have to care about this? Why about hygiene? In the first version
-/// of stable proc_macros, only call site spans are included. That means that
-/// we cannot generate spans that do not conflict with any other ident the user
-/// wrote. Once proper hygiene is available to proc_macros, this should be
-/// changed.
-const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
-
-/// The lifetime parameter used in the proxy type if the proxy type is `&` or
-/// `&mut`. For more information see `PROXY_TY_PARAM_NAME`.
-const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 
 
 /// Generates one complete impl of the given trait for each of the given proxy
@@ -36,12 +23,12 @@ pub(crate) fn gen_impls(
 ) -> Result<::proc_macro::TokenStream, ()> {
     let mut tokens = TokenStream2::new();
 
-    find_suitable_param_names(trait_def);
+    let (proxy_ty_param, proxy_lt_param) = find_suitable_param_names(trait_def);
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
-        let header = header(proxy_type, trait_def)?;
-        let items = gen_items(proxy_type, trait_def)?;
+        let header = header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param)?;
+        let items = gen_items(proxy_type, trait_def, &proxy_ty_param)?;
 
         tokens.append_all(quote! {
             #header { #( #items )* }
@@ -53,10 +40,12 @@ pub(crate) fn gen_impls(
 
 /// Generates the header of the impl of the given trait for the given proxy
 /// type.
-fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2, ()> {
-    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
-    let proxy_lt_param = &Lifetime::new(PROXY_LT_PARAM_NAME, Span2::call_site());
-
+fn header(
+    proxy_type: &ProxyType,
+    trait_def: &ItemTrait,
+    proxy_ty_param: &Ident,
+    proxy_lt_param: &Lifetime,
+) -> Result<TokenStream2, ()> {
     // Generate generics for impl positions from trait generics.
     let (impl_generics, trait_generics, where_clause) = trait_def.generics.split_for_impl();
 
@@ -70,10 +59,10 @@ fn header(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Result<TokenStream2,
     // one or two parameters added. For a trait `trait Foo<'x, 'y, A, B>`,
     // it will look like this:
     //
-    //    '__auto_impl_proxy_lifetime, 'x, 'y, A, B, __AutoImplProxyT
+    //    '{proxy_lt_param}, 'x, 'y, A, B, {proxy_ty_param}
     //
-    // The `'__auto_impl_proxy_lifetime` in the beginning is only added when
-    // the proxy type is `&` or `&mut`.
+    // The `'{proxy_lt_param}` in the beginning is only added when the proxy
+    // type is `&` or `&mut`.
     let impl_generics = {
         // Determine if our proxy type needs a lifetime parameter
         let (mut params, ty_bounds) = match proxy_type {
@@ -304,12 +293,19 @@ fn gen_fn_type_for_trait(
 fn gen_items(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
+    proxy_ty_param: &Ident,
 ) -> Result<Vec<TokenStream2>, ()> {
     trait_def.items.iter().map(|item| {
         match item {
-            TraitItem::Const(c) => gen_const_item(proxy_type, c, trait_def),
-            TraitItem::Method(method) => gen_method_item(proxy_type, method, trait_def),
-            TraitItem::Type(ty) => gen_type_item(proxy_type, ty, trait_def),
+            TraitItem::Const(c) => {
+                gen_const_item(proxy_type, c, trait_def, proxy_ty_param)
+            }
+            TraitItem::Method(method) => {
+                gen_method_item(proxy_type, method, trait_def, proxy_ty_param)
+            }
+            TraitItem::Type(ty) => {
+                gen_type_item(proxy_type, ty, trait_def, proxy_ty_param)
+            }
             TraitItem::Macro(mac) => {
                 // We cannot resolve the macro invocation and thus cannot know
                 // if it adds additional items to the trait. Thus, we have to
@@ -341,6 +337,7 @@ fn gen_const_item(
     proxy_type: &ProxyType,
     item: &TraitItemConst,
     trait_def: &ItemTrait,
+    proxy_ty_param: &Ident,
 ) -> Result<TokenStream2, ()> {
     // A trait with associated consts cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
@@ -357,7 +354,6 @@ fn gen_const_item(
     // We simply use the associated const from our type parameter.
     let const_name = &item.ident;
     let const_ty = &item.ty;
-    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
 
     Ok(quote ! {
         const #const_name: #const_ty = #proxy_ty_param::#const_name;
@@ -373,6 +369,7 @@ fn gen_type_item(
     proxy_type: &ProxyType,
     item: &TraitItemType,
     trait_def: &ItemTrait,
+    proxy_ty_param: &Ident,
 ) -> Result<TokenStream2, ()> {
     // A trait with associated types cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
@@ -388,7 +385,6 @@ fn gen_type_item(
 
     // We simply use the associated type from our type parameter.
     let assoc_name = &item.ident;
-    let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
 
     Ok(quote ! {
         type #assoc_name = #proxy_ty_param::#assoc_name;
@@ -405,6 +401,7 @@ fn gen_method_item(
     proxy_type: &ProxyType,
     item: &TraitItemMethod,
     trait_def: &ItemTrait,
+    proxy_ty_param: &Ident,
 ) -> Result<TokenStream2, ()> {
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
@@ -428,7 +425,6 @@ fn gen_method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box.
-            let proxy_ty_param = Ident::new(PROXY_TY_PARAM_NAME, Span2::call_site());
             quote! { #proxy_ty_param::#name(#args) }
         }
 

@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use proc_macro2::Span as Span2;
 use syn::{
     Ident, ItemTrait, Lifetime, Block,
+    token::Apostrophe,
     visit::{Visit, visit_item_trait},
 };
 
@@ -36,7 +37,7 @@ const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 /// name, we'll use the ugly `PROXY_TY_PARAM_NAME` and `PROXY_LT_PARAM_NAME`.
 ///
 /// This method returns two idents: (type_parameter, lifetime_parameter).
-pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Ident) {
+pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
     // Define the visitor that just collects names
     struct IdentCollector<'ast> {
         ty_names: HashSet<&'ast Ident>,
@@ -87,6 +88,10 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Ident)
         .map(char_to_ident)
         .find(|i| !visitor.lt_names.contains(i))
         .unwrap_or_else(|| Ident::new(PROXY_LT_PARAM_NAME, Span2::call_site()));
+    let lt = Lifetime {
+        apostrophe: Apostrophe::new(Span2::call_site()),
+        ident: lt_name,
+    };
 
-    (ty_name, lt_name)
+    (ty_name, lt)
 }
