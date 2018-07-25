@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use proc_macro::{token_stream, TokenStream, TokenTree};
 
-use diag::SpanExt;
+use crate::diag::SpanExt;
 
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

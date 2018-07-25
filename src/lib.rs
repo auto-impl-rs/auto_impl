@@ -21,8 +21,10 @@ mod gen;
 mod proxy;
 mod spanned;
 
-use diag::SpanExt;
-use spanned::Spanned;
+use crate::{
+    diag::SpanExt,
+    spanned::Spanned,
+};
 
 
 /// See crate documentation for more information.

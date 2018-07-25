@@ -7,7 +7,7 @@ use syn::{
 };
 
 use crate::{
-    analyze::{find_suitable_param_names},
+    analyze::find_suitable_param_names,
     diag::{DiagnosticExt, SpanExt},
     proxy::ProxyType,
     spanned::Spanned
