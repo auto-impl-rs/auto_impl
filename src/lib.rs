@@ -5,12 +5,8 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
 #![feature(rust_2018_preview)]
 
-
-extern crate proc_macro;
-extern crate proc_macro2;
 #[macro_use]
 extern crate quote;
-extern crate syn;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;

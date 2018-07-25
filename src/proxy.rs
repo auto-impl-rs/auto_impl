@@ -6,7 +6,7 @@ use crate::diag::SpanExt;
 
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ProxyType {
+crate enum ProxyType {
     Ref,
     RefMut,
     Arc,
@@ -18,7 +18,7 @@ pub(crate) enum ProxyType {
 }
 
 impl ProxyType {
-    pub(crate) fn is_fn(&self) -> bool {
+    crate fn is_fn(&self) -> bool {
         match *self {
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => true,
             _ => false,
@@ -34,7 +34,7 @@ impl ProxyType {
 ///
 /// If the given TokenStream is not valid, errors are emitted as appropriate
 /// and `Err(())` is returned.
-pub(crate) fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
+crate fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
     let mut out = Vec::new();
     let mut iter = args.into_iter().peekable();
 

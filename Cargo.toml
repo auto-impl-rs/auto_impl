@@ -1,3 +1,5 @@
+cargo-features = ["edition"]
+
 [package]
 name = "auto_impl"
 version = "0.2.0"
@@ -13,6 +15,7 @@ keywords = ["plugin"]
 categories = ["development-tools"]
 readme = "README.md"
 autotests = true
+edition = '2018'
 
 [badges]
 travis-ci = { repository = "KodrAus/auto_impl" }

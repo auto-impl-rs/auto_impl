@@ -37,14 +37,14 @@ const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 /// name, we'll use the ugly `PROXY_TY_PARAM_NAME` and `PROXY_LT_PARAM_NAME`.
 ///
 /// This method returns two idents: (type_parameter, lifetime_parameter).
-pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
+crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
     // Define the visitor that just collects names
     struct IdentCollector<'ast> {
         ty_names: HashSet<&'ast Ident>,
         lt_names: HashSet<&'ast Ident>,
     }
 
-    impl<'ast> Visit<'ast> for IdentCollector<'ast> {
+    impl Visit<'ast> for IdentCollector<'ast> {
         fn visit_ident(&mut self, i: &'ast Ident) {
             self.ty_names.insert(i);
         }

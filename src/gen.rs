@@ -17,7 +17,7 @@ use crate::{
 
 /// Generates one complete impl of the given trait for each of the given proxy
 /// types. All impls are returned as token stream.
-pub(crate) fn gen_impls(
+crate fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
 ) -> Result<::proc_macro::TokenStream, ()> {

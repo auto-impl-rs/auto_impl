@@ -44,10 +44,10 @@ impl DiagnosticExt for Diagnostic {
 // `Diagnostic`.
 
 #[cfg(feature = "nightly")]
-pub(crate) type Diagnostic = ::proc_macro::Diagnostic;
+crate type Diagnostic = ::proc_macro::Diagnostic;
 
 #[cfg(not(feature = "nightly"))]
-pub(crate) struct Diagnostic {
+crate struct Diagnostic {
     span: Span,
     msg: String,
 }
@@ -86,19 +86,19 @@ pub(crate) struct Diagnostic {
 // required.
 #[cfg(not(feature = "nightly"))]
 impl Diagnostic {
-    pub(crate) fn note(mut self, msg: impl Into<String>) -> Diagnostic {
+    crate fn note(mut self, msg: impl Into<String>) -> Diagnostic {
         self.msg += &format!("\n\nnote: {}", msg.into());
         self
     }
 
-    pub(crate) fn span_note(mut self, _: Span, msg: impl Into<String>) -> Diagnostic {
+    crate fn span_note(mut self, _: Span, msg: impl Into<String>) -> Diagnostic {
         // With out span fake method, we can only handle one span. We take the
         // one of the original error and ignore additional ones.
         self.msg += &format!("\n\nnote: {}", msg.into());
         self
     }
 
-    pub(crate) fn emit(self) {
+    crate fn emit(self) {
         // Create the error token stream that contains the `compile_error!()`
         // invocation.
         let msg = &self.msg;
@@ -149,7 +149,7 @@ thread_local! {
 
 /// On stable, we just copy the error token streams from the global variable.
 #[cfg(not(feature = "nightly"))]
-pub(crate) fn error_tokens() -> TokenStream {
+crate fn error_tokens() -> TokenStream {
     ERROR_TOKENS.with(|toks| toks.borrow().iter().cloned().collect())
 }
 
@@ -157,13 +157,13 @@ pub(crate) fn error_tokens() -> TokenStream {
 /// we just return an empty token stream. That's not a problem because all of
 /// our errors were already printed.
 #[cfg(feature = "nightly")]
-pub(crate) fn error_tokens() -> TokenStream {
+crate fn error_tokens() -> TokenStream {
     TokenStream::new()
 }
 
 /// Extension trait to add the `err()` method to `Span`. This makes it easy to
 /// start a `Diagnostic` from a span.
-pub(crate) trait SpanExt {
+crate trait SpanExt {
     fn err(self, msg: impl Into<String>) -> Diagnostic;
 }
 
