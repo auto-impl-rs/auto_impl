@@ -12,6 +12,7 @@ documentation = "https://docs.rs/auto_impl/"
 keywords = ["plugin"]
 categories = ["development-tools"]
 readme = "README.md"
+autotests = true
 
 [badges]
 travis-ci = { repository = "KodrAus/auto_impl" }
@@ -23,3 +24,17 @@ proc-macro = true
 proc-macro2 = { version = "0.4.6", features = ["nightly"] }
 quote = "0.6.3"
 syn = { version = "0.14.4", features = ["full"] }
+
+[dev-dependencies]
+build-plan = "0.1.1"
+libtest-mimic = "0.1.0"
+
+[[test]]
+name = "compile-fail"
+path = "tests/compile-fail.rs"
+harness = false
+
+[[test]]
+name = "compile-pass"
+path = "tests/compile-pass.rs"
+harness = false
