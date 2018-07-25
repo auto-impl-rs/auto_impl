@@ -3,9 +3,7 @@
 
 
 #![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
-#![feature(crate_in_paths)]
-#![feature(extern_prelude)]
-#![feature(in_band_lifetimes)]
+#![feature(rust_2018_preview)]
 
 
 extern crate proc_macro;
