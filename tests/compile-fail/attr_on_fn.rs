@@ -4,7 +4,7 @@ extern crate auto_impl;
 use auto_impl::auto_impl;
 
 
-#[auto_impl(FnMut)]
-trait FnTrait3 {
-    fn execute(&mut self);
+#[auto_impl(&, &mut)]
+fn foo(s: String) -> u32 {
+    3
 }
