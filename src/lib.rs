@@ -16,6 +16,8 @@ extern crate syn;
 
 use proc_macro::{Diagnostic, Level, Span, TokenStream};
 
+mod analyze;
+mod diag;
 mod gen;
 mod proxy;
 mod spanned;
