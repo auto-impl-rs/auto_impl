@@ -1,6 +1,6 @@
 //! This module has two purposes:
 //!
-//! 1. Provide the convenienve method `emit_with_attr_note` and add it via
+//! 1. Provide the convenience method `emit_with_attr_note` and add it via
 //!    extension trait to `Diagnostic`.
 //!
 //! 2. Make `Diagnostic` work on stable by providing an own `Diagnostic` type
