@@ -13,12 +13,8 @@
 //! $ cargo rustc --example fail_on_struct --features nightly -- --cfg fail
 //! ```
 
-#![feature(use_extern_macros)]
-
-
 #[cfg(fail)]
 mod fail {
-    extern crate auto_impl;
     use self::auto_impl::auto_impl;
 
 
