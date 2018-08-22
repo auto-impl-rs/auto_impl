@@ -1,9 +1,6 @@
-
 // Make sure that everything compiles even without the prelude. This basically
 // forces us to generate full paths for types of the standard/core library.
 #![no_implicit_prelude]
-
-extern crate auto_impl;
 
 
 mod outer {

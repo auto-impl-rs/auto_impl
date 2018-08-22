@@ -1,7 +1,4 @@
 
-extern crate auto_impl;
-
-
 fn foo() {
     use auto_impl::auto_impl;
 
