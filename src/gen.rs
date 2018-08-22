@@ -544,7 +544,7 @@ fn check_receiver_compatible(
 /// Generates a list of comma-separated arguments used to call the function.
 /// Currently, only simple names are valid and more complex pattern will lead
 /// to an error being emitted. `self` parameters are ignored.
-fn get_arg_list(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2, ()> {
+fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2, ()> {
     let mut args = TokenStream2::new();
 
     for arg in inputs {

@@ -44,7 +44,7 @@ crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
         lt_names: HashSet<&'ast Ident>,
     }
 
-    impl Visit<'ast> for IdentCollector<'ast> {
+    impl<'ast> Visit<'ast> for IdentCollector<'ast> {
         fn visit_ident(&mut self, i: &'ast Ident) {
             self.ty_names.insert(i);
         }

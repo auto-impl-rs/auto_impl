@@ -3,7 +3,6 @@
 
 
 #![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
-#![feature(rust_2018_preview)]
 
 #[macro_use]
 extern crate quote;
