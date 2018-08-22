@@ -1,4 +1,3 @@
-#![feature(use_extern_macros)]
 
 // Make sure that everything compiles even without the prelude. This basically
 // forces us to generate full paths for types of the standard/core library.

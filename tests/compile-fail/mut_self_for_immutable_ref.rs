@@ -1,4 +1,3 @@
-#![feature(use_extern_macros)]
 
 extern crate auto_impl;
 
