@@ -1,3 +1,6 @@
+//! Internal attributes of the form `#[auto_impl(name(...))]` that can be
+//! attached to trait items.
+
 use proc_macro2::{Delimiter, TokenTree};
 use syn::{
     Attribute, TraitItemMethod,
@@ -9,7 +12,6 @@ use crate::{
     proxy::{parse_types, ProxyType},
     spanned::Spanned
 };
-
 
 
 /// Removes all `#[auto_impl]` attributes that are attached to methods of the
@@ -41,6 +43,9 @@ crate fn is_our_attr(attr: &Attribute) -> bool {
 crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     assert!(is_our_attr(attr));
 
+    // Get the body of the attribute (which has to be a ground, because we
+    // required the syntax `auto_impl(...)` and forbid stuff like
+    // `auto_impl = ...`).
     let tokens = attr.tts.clone().into_iter().collect::<Vec<_>>();
     let body = match &*tokens {
         [TokenTree::Group(g)] => g.stream(),
@@ -53,6 +58,7 @@ crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
 
     let mut it = body.clone().into_iter();
 
+    // Try to extract the name (we require the body to be `name(...)`).
     let name = match it.next() {
         Some(TokenTree::Ident(x)) => x,
         Some(other) => {
@@ -67,6 +73,8 @@ crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
         }
     };
 
+    // Extract the parameters (which again, have to be a group delimitted by
+    // `()`)
     let params = match it.next() {
         Some(TokenTree::Group(ref g)) if g.delimiter() == Delimiter::Parenthesis => {
             g.stream()
@@ -92,6 +100,7 @@ crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
         }
     };
 
+    // Finally match over the name of the attribute.
     let out = match () {
         () if name == "keep_default_for" => {
             let proxy_types = parse_types(params.into())?;
@@ -107,6 +116,8 @@ crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     Ok(out)
 }
 
+/// Attributes of the form `#[auto_impl(...)]` that can be attached to items of
+/// the trait.
 #[derive(Clone, PartialEq, Debug)]
 crate enum OurAttr {
     KeepDefaultFor(Vec<ProxyType>),
