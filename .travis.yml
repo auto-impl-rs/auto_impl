@@ -2,4 +2,13 @@ language: rust
 rust:
   - nightly
 
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo build --verbose --features=nightly
+  - cargo test --verbose --features=nightly
+
+env:
+  - RUST_FLAGS="--deny warnings"
+
 cache: cargo

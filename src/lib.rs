@@ -1,26 +1,25 @@
 //! A proc-macro attribute for automatically implementing a trait for
 //! references, some common smart pointers and closures.
 
-#![feature(crate_in_paths)]
-#![feature(extern_prelude)]
-#![feature(in_band_lifetimes)]
-#![feature(proc_macro_span)]
-#![feature(proc_macro_diagnostic)]
 
+#![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
 
-extern crate proc_macro;
-extern crate proc_macro2;
 #[macro_use]
 extern crate quote;
-extern crate syn;
 
-use proc_macro::{Diagnostic, Level, Span, TokenStream};
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 
 mod analyze;
 mod diag;
 mod gen;
 mod proxy;
 mod spanned;
+
+use crate::{
+    diag::SpanExt,
+    spanned::Spanned,
+};
 
 
 /// See crate documentation for more information.
@@ -48,8 +47,10 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             // compiler usually does some kind of error recovery to proceed. We
             // get the recovered tokens.
             Err(e) => {
-                let msg = "couldn't parse trait item";
-                Diagnostic::spanned(Span::call_site(), Level::Error, msg)
+                // We have to take the detour through TokenStream2 to get a
+                // good span for the error.
+                TokenStream2::from(input.clone()).span()
+                    .err("couldn't parse trait item")
                     .note(e.to_string())
                     .note("the #[auto_impl] attribute can only be applied to traits!")
                     .emit();
@@ -57,7 +58,7 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                 Err(())
             }
         }
-    }().unwrap_or(TokenStream::new()); // If an error occured, we don't add any tokens.
+    }().unwrap_or_else(|_| diag::error_tokens());
 
     // Combine the original token stream with the additional one containing the
     // generated impls (or nothing if an error occured).

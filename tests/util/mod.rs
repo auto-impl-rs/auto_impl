@@ -111,6 +111,7 @@ pub(crate) fn run_rustc(file_path: &Path, dep_path: &Path) -> process::Output {
         .args(&["--crate-type", "lib"])
         .args(&["-Z", "no-codegen"])
         .args(&["--emit", "metadata"])
+        .arg("--edition=2018")
         .arg("--out-dir").arg(&out_dir)
         .arg("--extern").arg(&extern_value)
         .output()

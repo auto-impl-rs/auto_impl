@@ -29,9 +29,7 @@
 
 // This code is really ugly on purpose...
 #![allow(non_snake_case, dead_code, unused_variables)]
-#![feature(use_extern_macros)]
 
-extern crate auto_impl;
 use auto_impl::auto_impl;
 
 

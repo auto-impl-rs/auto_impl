@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use proc_macro::Span;
 use proc_macro2::Span as Span2;
 use syn::{
     Ident, ItemTrait, Lifetime, Block,
@@ -38,7 +37,7 @@ const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 /// name, we'll use the ugly `PROXY_TY_PARAM_NAME` and `PROXY_LT_PARAM_NAME`.
 ///
 /// This method returns two idents: (type_parameter, lifetime_parameter).
-pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
+crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
     // Define the visitor that just collects names
     struct IdentCollector<'ast> {
         ty_names: HashSet<&'ast Ident>,
@@ -71,11 +70,6 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     visit_item_trait(&mut visitor, trait_def);
 
 
-    fn param_span() -> Span2 {
-        // TODO: change for stable builds
-        Span::def_site().into()
-    }
-
     fn char_to_ident(c: u8) -> Ident {
         let arr = [c];
         let s = ::std::str::from_utf8(&arr).unwrap();
@@ -100,4 +94,21 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     };
 
     (ty_name, lt)
+}
+
+/// On nightly, we use `def_site` hygiene which puts our names into another
+/// universe than the names of the user. This is not strictly required as our
+/// name is already pretty much guaranteed to not conflict with another name,
+/// but this is cleaner and just the correct thing to do.
+#[cfg(feature = "nightly")]
+fn param_span() -> Span2 {
+    ::proc_macro::Span::def_site().into()
+}
+
+/// On stable, we use `call_site()` hygiene. That means that our names could
+/// theoretically collide with names of the user. But we made sure this doesn't
+/// happen.
+#[cfg(not(feature = "nightly"))]
+fn param_span() -> Span2 {
+    Span2::call_site()
 }
