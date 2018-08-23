@@ -30,7 +30,7 @@ nightly = ["proc-macro2/nightly"]
 [dependencies]
 proc-macro2 = { version = "0.4.6" }
 quote = "0.6.3"
-syn = { version = "0.14.4", features = ["full"] }
+syn = { version = "0.14.4", features = ["full", "visit-mut"] }
 
 [dev-dependencies]
 build-plan = "0.1.1"

@@ -9,6 +9,10 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use syn::{
+    TraitItemMethod,
+    visit_mut::{VisitMut, visit_item_trait_mut},
+};
 
 mod analyze;
 mod diag;
@@ -27,7 +31,7 @@ use crate::{
 pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     // We use the closure trick to catch errors until the `catch` syntax is
     // available. If an error occurs, we won't modify or add any tokens.
-    let impls = || -> Result<TokenStream, ()> {
+    let result = || -> Result<TokenStream, ()> {
         // Try to parse the token stream from the attribute to get a list of
         // proxy types.
         let proxy_types = proxy::parse_types(args)?;
@@ -39,7 +43,15 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             // The attribute was applied to a valid trait. Now it's time to
             // execute the main step: generate a token stream which contains an
             // impl of the trait for each proxy type.
-            Ok(trait_def) => Ok(gen::gen_impls(&proxy_types, &trait_def)?),
+            Ok(mut trait_def) => {
+                let generated = gen::gen_impls(&proxy_types, &trait_def)?;
+
+                // Before returning the trait definition, we have to remove all
+                // `#[auto_impl(...)]` attributes on any methods.
+                remove_our_attrs(&mut trait_def);
+
+                Ok(quote! { #trait_def #generated }.into())
+            },
 
             // If the token stream could not be parsed as trait, this most
             // likely means that the attribute was applied to a non-trait item.
@@ -58,9 +70,28 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                 Err(())
             }
         }
-    }().unwrap_or_else(|_| diag::error_tokens());
+    }();
 
-    // Combine the original token stream with the additional one containing the
-    // generated impls (or nothing if an error occured).
-    vec![input, impls].into_iter().collect()
+    // If everything went well, we just return the new token stream. If an
+    // error occured, we combine the original token stream with the generated
+    // errors (which are tokens on stable due to the `compile_error!` hack).
+    match result {
+        Ok(tokens) => tokens,
+        Err(_) => vec![input, diag::error_tokens()].into_iter().collect(),
+    }
+}
+
+/// Removes all `#[auto_impl]` attributes that are attached to methods of the
+/// given trait.
+fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
+    struct AttrRemover;
+    impl VisitMut for AttrRemover {
+        fn visit_trait_item_method_mut(&mut self, m: &mut TraitItemMethod) {
+            m.attrs.retain(|a| !a.path.segments.iter().all(|seg| {
+                seg.ident == "auto_impl" && seg.arguments.is_empty()
+            }));
+        }
+    }
+
+    visit_item_trait_mut(&mut AttrRemover, trait_def);
 }

@@ -20,7 +20,7 @@ use crate::{
 crate fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
-) -> Result<::proc_macro::TokenStream, ()> {
+) -> Result<TokenStream2, ()> {
     let mut tokens = TokenStream2::new();
 
     let (proxy_ty_param, proxy_lt_param) = find_suitable_param_names(trait_def);
@@ -35,7 +35,7 @@ crate fn gen_impls(
         });
     }
 
-    Ok(tokens.into())
+    Ok(tokens)
 }
 
 /// Generates the header of the impl of the given trait for the given proxy
