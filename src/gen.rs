@@ -8,6 +8,7 @@ use syn::{
 
 use crate::{
     analyze::find_suitable_param_names,
+    attr::{OurAttr, is_our_attr, parse_our_attr},
     diag::{DiagnosticExt, SpanExt},
     proxy::ProxyType,
     spanned::Spanned
@@ -20,7 +21,7 @@ use crate::{
 crate fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
-) -> Result<::proc_macro::TokenStream, ()> {
+) -> Result<TokenStream2, ()> {
     let mut tokens = TokenStream2::new();
 
     let (proxy_ty_param, proxy_lt_param) = find_suitable_param_names(trait_def);
@@ -35,7 +36,7 @@ crate fn gen_impls(
         });
     }
 
-    Ok(tokens.into())
+    Ok(tokens)
 }
 
 /// Generates the header of the impl of the given trait for the given proxy
@@ -403,6 +404,22 @@ fn gen_method_item(
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
 ) -> Result<TokenStream2, ()> {
+    // If this method has a `#[auto_impl(keep_default_for(...))]` attribute for
+    // the given proxy type, we don't generate anything for this impl block.
+    if should_keep_default_for(item, proxy_type)? {
+        if item.default.is_some() {
+            return Ok(TokenStream2::new());
+        } else {
+            return item.sig.span()
+                .err(format!(
+                    "the method `{}` has the attribute `keep_default_for` but is not a default \
+                        method (no body is provided)",
+                    item.sig.ident,
+                ))
+                .emit_with_attr_note();
+        }
+    }
+
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
     let self_arg = SelfType::from_sig(sig);
@@ -590,4 +607,34 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
     }
 
     Ok(args)
+}
+
+/// Checks if the given method has the attribute `#[auto_impl(keep_default_for(...))]`
+/// and if it contains the given proxy type.
+fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> Result<bool, ()> {
+    // Get an iterator of just the attribute we are interested in.
+    let mut it = m.attrs.iter()
+        .filter(|attr| is_our_attr(attr))
+        .map(|attr| parse_our_attr(&attr));
+
+    // Check the first (and hopefully only) `keep_default_for` attribute.
+    let out = match it.next() {
+        Some(attr) => {
+            // Check if the attribute lists the given proxy type.
+            let OurAttr::KeepDefaultFor(proxy_types) = attr?;
+            proxy_types.contains(proxy_type)
+        }
+
+        // If there is no such attribute, we return `false`
+        None => false,
+    };
+
+    // Check if there is another such attribute (which we disallow)
+    if it.next().is_some() {
+        return m.sig.span()
+            .err("found two `keep_default_for` attributes on one method")
+            .emit_with_attr_note();
+    }
+
+    Ok(out)
 }
