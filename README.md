@@ -1,4 +1,4 @@
-# `auto_impl` [![Build Status](https://travis-ci.org/auto-impl-rs/auto_impl.svg?branch=master)](https://travis-ci.org/KodrAus/auto_impl) [![Crates.io](https://img.shields.io/crates/v/auto_impl.svg)](https://crates.io/crates/auto_impl)
+# `auto_impl` [![Build Status](https://travis-ci.org/auto-impl-rs/auto_impl.svg?branch=master)](https://travis-ci.org/auto-impl-rs/auto_impl) [![Crates.io](https://img.shields.io/crates/v/auto_impl.svg)](https://crates.io/crates/auto_impl)
 
 A simple compiler plugin for automatically implementing a trait for some common smart pointers and closures.
 
