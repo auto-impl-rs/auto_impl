@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use proc_macro2::Span as Span2;
 use syn::{
     Ident, ItemTrait, Lifetime, Block,
-    token::Apostrophe,
     visit::{Visit, visit_item_trait},
 };
 
@@ -89,7 +88,7 @@ crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
         .find(|i| !visitor.lt_names.contains(i))
         .unwrap_or_else(|| Ident::new(PROXY_LT_PARAM_NAME, param_span()));
     let lt = Lifetime {
-        apostrophe: Apostrophe::new(param_span()),
+        apostrophe: param_span(),
         ident: lt_name,
     };
 
