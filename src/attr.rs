@@ -16,7 +16,7 @@ use crate::{
 
 /// Removes all `#[auto_impl]` attributes that are attached to methods of the
 /// given trait.
-crate fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
+pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
     struct AttrRemover;
     impl VisitMut for AttrRemover {
         fn visit_trait_item_method_mut(&mut self, m: &mut TraitItemMethod) {
@@ -29,7 +29,7 @@ crate fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
 
 /// Checks if the given attribute is "our" attribute. That means that it's path
 /// is `auto_impl`.
-crate fn is_our_attr(attr: &Attribute) -> bool {
+pub(crate) fn is_our_attr(attr: &Attribute) -> bool {
     attr.path.segments.len() == 1
         && attr.path.segments.iter().next().map(|seg| {
             seg.ident == "auto_impl" && seg.arguments.is_empty()
@@ -40,7 +40,7 @@ crate fn is_our_attr(attr: &Attribute) -> bool {
 /// attributes. If it's invalid, an error is emitted and `Err(())` is returned.
 /// You have to make sure that `attr` is one of our attrs with `is_our_attr`
 /// before calling this function!
-crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
+pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     assert!(is_our_attr(attr));
 
     // Get the body of the attribute (which has to be a ground, because we
@@ -119,6 +119,6 @@ crate fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
 /// Attributes of the form `#[auto_impl(...)]` that can be attached to items of
 /// the trait.
 #[derive(Clone, PartialEq, Debug)]
-crate enum OurAttr {
+pub(crate) enum OurAttr {
     KeepDefaultFor(Vec<ProxyType>),
 }
