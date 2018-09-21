@@ -44,7 +44,7 @@ impl DiagnosticExt for Diagnostic {
 // `Diagnostic`.
 
 #[cfg(feature = "nightly")]
-crate type Diagnostic = ::proc_macro::Diagnostic;
+pub(crate) type Diagnostic = crate::proc_macro::Diagnostic;
 
 #[cfg(not(feature = "nightly"))]
 pub(crate) struct Diagnostic {
@@ -170,7 +170,7 @@ pub(crate) trait SpanExt {
 impl SpanExt for Span {
     #[cfg(feature = "nightly")]
     fn err(self, msg: impl Into<String>) -> Diagnostic {
-        Diagnostic::spanned(self, ::proc_macro::Level::Error, msg)
+        Diagnostic::spanned(self, crate::proc_macro::Level::Error, msg)
     }
 
     #[cfg(not(feature = "nightly"))]

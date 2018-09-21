@@ -101,7 +101,7 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
 /// but this is cleaner and just the correct thing to do.
 #[cfg(feature = "nightly")]
 fn param_span() -> Span2 {
-    ::proc_macro::Span::def_site().into()
+    crate::proc_macro::Span::def_site().into()
 }
 
 /// On stable, we use `call_site()` hygiene. That means that our names could
