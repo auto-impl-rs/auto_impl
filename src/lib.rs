@@ -4,10 +4,11 @@
 
 #![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
 
+extern crate proc_macro;
 #[macro_use]
 extern crate quote;
 
-use proc_macro::TokenStream;
+use crate::proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 

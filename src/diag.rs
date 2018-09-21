@@ -12,7 +12,7 @@
 //!    `.err()` on spans.
 //!
 
-use proc_macro::{Span, TokenStream};
+use crate::proc_macro::{Span, TokenStream};
 
 
 /// Extension trait that adds a convenience method to `Diagnostic`. This is

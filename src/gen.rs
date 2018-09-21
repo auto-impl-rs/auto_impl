@@ -1,4 +1,4 @@
-use proc_macro::Span;
+use crate::proc_macro::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{

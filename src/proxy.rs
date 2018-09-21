@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use proc_macro::{token_stream, TokenStream, TokenTree};
+use crate::proc_macro::{token_stream, TokenStream, TokenTree};
 
 use crate::diag::SpanExt;
 
@@ -141,7 +141,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
 
 #[cfg(test)]
 mod test {
-    use proc_macro::TokenStream;
+    use crate::proc_macro::TokenStream;
 
     use super::parse_types;
 
