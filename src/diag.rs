@@ -12,7 +12,7 @@
 //!    `.err()` on spans.
 //!
 
-use proc_macro::{Span, TokenStream};
+use crate::proc_macro::{Span, TokenStream};
 
 
 /// Extension trait that adds a convenience method to `Diagnostic`. This is
@@ -44,10 +44,10 @@ impl DiagnosticExt for Diagnostic {
 // `Diagnostic`.
 
 #[cfg(feature = "nightly")]
-crate type Diagnostic = ::proc_macro::Diagnostic;
+pub(crate) type Diagnostic = crate::proc_macro::Diagnostic;
 
 #[cfg(not(feature = "nightly"))]
-crate struct Diagnostic {
+pub(crate) struct Diagnostic {
     span: Span,
     msg: String,
 }
@@ -86,19 +86,19 @@ crate struct Diagnostic {
 // required.
 #[cfg(not(feature = "nightly"))]
 impl Diagnostic {
-    crate fn note(mut self, msg: impl Into<String>) -> Diagnostic {
+    pub(crate) fn note(mut self, msg: impl Into<String>) -> Diagnostic {
         self.msg += &format!("\n\nnote: {}", msg.into());
         self
     }
 
-    crate fn span_note(mut self, _: Span, msg: impl Into<String>) -> Diagnostic {
+    pub(crate) fn span_note(mut self, _: Span, msg: impl Into<String>) -> Diagnostic {
         // With out span fake method, we can only handle one span. We take the
         // one of the original error and ignore additional ones.
         self.msg += &format!("\n\nnote: {}", msg.into());
         self
     }
 
-    crate fn emit(self) {
+    pub(crate) fn emit(self) {
         // Create the error token stream that contains the `compile_error!()`
         // invocation.
         let msg = &self.msg;
@@ -149,7 +149,7 @@ thread_local! {
 
 /// On stable, we just copy the error token streams from the global variable.
 #[cfg(not(feature = "nightly"))]
-crate fn error_tokens() -> TokenStream {
+pub(crate) fn error_tokens() -> TokenStream {
     ERROR_TOKENS.with(|toks| toks.borrow().iter().cloned().collect())
 }
 
@@ -157,20 +157,20 @@ crate fn error_tokens() -> TokenStream {
 /// we just return an empty token stream. That's not a problem because all of
 /// our errors were already printed.
 #[cfg(feature = "nightly")]
-crate fn error_tokens() -> TokenStream {
+pub(crate) fn error_tokens() -> TokenStream {
     TokenStream::new()
 }
 
 /// Extension trait to add the `err()` method to `Span`. This makes it easy to
 /// start a `Diagnostic` from a span.
-crate trait SpanExt {
+pub(crate) trait SpanExt {
     fn err(self, msg: impl Into<String>) -> Diagnostic;
 }
 
 impl SpanExt for Span {
     #[cfg(feature = "nightly")]
     fn err(self, msg: impl Into<String>) -> Diagnostic {
-        Diagnostic::spanned(self, ::proc_macro::Level::Error, msg)
+        Diagnostic::spanned(self, crate::proc_macro::Level::Error, msg)
     }
 
     #[cfg(not(feature = "nightly"))]

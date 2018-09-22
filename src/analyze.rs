@@ -36,7 +36,7 @@ const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
 /// name, we'll use the ugly `PROXY_TY_PARAM_NAME` and `PROXY_LT_PARAM_NAME`.
 ///
 /// This method returns two idents: (type_parameter, lifetime_parameter).
-crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
+pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
     // Define the visitor that just collects names
     struct IdentCollector<'ast> {
         ty_names: HashSet<&'ast Ident>,
@@ -101,7 +101,7 @@ crate fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifetime) {
 /// but this is cleaner and just the correct thing to do.
 #[cfg(feature = "nightly")]
 fn param_span() -> Span2 {
-    ::proc_macro::Span::def_site().into()
+    crate::proc_macro::Span::def_site().into()
 }
 
 /// On stable, we use `call_site()` hygiene. That means that our names could

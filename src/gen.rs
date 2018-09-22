@@ -1,4 +1,4 @@
-use proc_macro::Span;
+use crate::proc_macro::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
@@ -18,7 +18,7 @@ use crate::{
 
 /// Generates one complete impl of the given trait for each of the given proxy
 /// types. All impls are returned as token stream.
-crate fn gen_impls(
+pub(crate) fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
 ) -> Result<TokenStream2, ()> {

@@ -1,12 +1,12 @@
 use std::iter::Peekable;
 
-use proc_macro::{token_stream, TokenStream, TokenTree};
+use crate::proc_macro::{token_stream, TokenStream, TokenTree};
 
 use crate::diag::SpanExt;
 
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-crate enum ProxyType {
+pub(crate) enum ProxyType {
     Ref,
     RefMut,
     Arc,
@@ -18,7 +18,7 @@ crate enum ProxyType {
 }
 
 impl ProxyType {
-    crate fn is_fn(&self) -> bool {
+    pub(crate) fn is_fn(&self) -> bool {
         match *self {
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => true,
             _ => false,
@@ -34,7 +34,7 @@ impl ProxyType {
 ///
 /// If the given TokenStream is not valid, errors are emitted as appropriate
 /// and `Err(())` is returned.
-crate fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
+pub(crate) fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
     let mut out = Vec::new();
     let mut iter = args.into_iter().peekable();
 
@@ -141,7 +141,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
 
 #[cfg(test)]
 mod test {
-    use proc_macro::TokenStream;
+    use crate::proc_macro::TokenStream;
 
     use super::parse_types;
 
