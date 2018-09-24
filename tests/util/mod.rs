@@ -3,7 +3,7 @@ use std::{
     ffi::{OsStr, OsString},
     fs,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::{self, Command, Stdio},
 };
 
 use build_plan::BuildPlan;
@@ -23,8 +23,13 @@ pub(crate) fn get_dep_path() -> PathBuf {
     // an .so file on Linux).
     let output = Command::new(env!("CARGO"))
         .args(&["build", "-Z", "unstable-options", "--build-plan"])
+        .stderr(Stdio::inherit())
         .output()
         .expect("failed to run `cargo build`");
+
+    if !output.status.success() {
+        panic!("failed to run `cargo build`");
+    }
 
     // Parse JSON.
     let plan = BuildPlan::from_cargo_output(&output.stdout)
