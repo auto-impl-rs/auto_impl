@@ -430,6 +430,10 @@ fn gen_method_item(
     // Generate the list of argument used to call the method.
     let args = get_arg_list(sig.decl.inputs.iter())?;
 
+    // Determines the number of generic parameters, and what they are
+    let type_param_count = sig.decl.generics.type_params().count();
+    let (_, generic_types, _ ) = &sig.decl.generics.split_for_impl();
+
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
     let name = &sig.ident;
@@ -442,7 +446,12 @@ fn gen_method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box.
-            quote! { #proxy_ty_param::#name(#args) }
+
+             match type_param_count {
+              0 => quote! { #proxy_ty_param::#name(#args) },
+              _ => quote! { #proxy_ty_param::#name::#generic_types(#args) }
+            }
+           // quote! { #proxy_ty_param::#name(#args) }
         }
 
         // Receiver `self` (by value)
@@ -455,7 +464,11 @@ fn gen_method_item(
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (**self).#name(#args) }
+             match type_param_count {
+              0 => quote! { (*self).#name(#args) },
+              _ => quote! { (*self).#name::#generic_types(#args) }
+            }
+          //  quote! { (**self).#name(#args) }
         }
     };
 
