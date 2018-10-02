@@ -446,7 +446,6 @@ fn gen_method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box.
-
              match type_param_count {
               0 => quote! { #proxy_ty_param::#name(#args) },
               _ => quote! { #proxy_ty_param::#name::#generic_types(#args) }

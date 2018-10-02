@@ -10,6 +10,7 @@ use libtest_mimic::{run_tests, Arguments, Outcome};
 
 mod util;
 
+
 fn main() {
     // Parse CLI args
     let args = Arguments::from_args();
@@ -24,7 +25,7 @@ fn main() {
 
         if output.status.success() {
             Outcome::Failed {
-                msg: Some("Expected compiler error, but file got compiled without error!".into()),
+                msg: Some("Expected compiler error, but file got compiled without error!".into())
             }
         } else {
             Outcome::Passed
