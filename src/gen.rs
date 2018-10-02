@@ -451,7 +451,6 @@ fn gen_method_item(
               0 => quote! { #proxy_ty_param::#name(#args) },
               _ => quote! { #proxy_ty_param::#name::#generic_types(#args) }
             }
-           // quote! { #proxy_ty_param::#name(#args) }
         }
 
         // Receiver `self` (by value)
@@ -468,7 +467,6 @@ fn gen_method_item(
               0 => quote! { (*self).#name(#args) },
               _ => quote! { (*self).#name::#generic_types(#args) }
             }
-          //  quote! { (**self).#name(#args) }
         }
     };
 
