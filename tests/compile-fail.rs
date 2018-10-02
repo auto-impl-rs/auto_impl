@@ -3,13 +3,12 @@
 //! This file only contains the logic of compile-fail tests. The actual tests
 //! are in the directory `compile-fail/`.
 
-extern crate libtest_mimic;
 extern crate build_plan;
+extern crate libtest_mimic;
 
 use libtest_mimic::{run_tests, Arguments, Outcome};
 
 mod util;
-
 
 fn main() {
     // Parse CLI args
@@ -17,6 +16,7 @@ fn main() {
 
     // Get the path of the `auto_impl` manifest
     let dep_path = util::get_dep_path();
+    println!("Dep Path: {:?}", dep_path);
 
     // Run all tests and exit the application appropriately
     let tests = util::collect_tests("compile-fail");
@@ -25,7 +25,7 @@ fn main() {
 
         if output.status.success() {
             Outcome::Failed {
-                msg: Some("Expected compiler error, but file got compiled without error!".into())
+                msg: Some("Expected compiler error, but file got compiled without error!".into()),
             }
         } else {
             Outcome::Passed
