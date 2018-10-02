@@ -432,7 +432,7 @@ fn gen_method_item(
 
     // Determines the number of generic parameters, and what they are
     let type_param_count = sig.decl.generics.type_params().count();
-    let (_, generic_types, _ ) = &sig.decl.generics.split_for_impl();
+    let (_, generic_types, _) = sig.decl.generics.split_for_impl();
 
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
@@ -455,7 +455,10 @@ fn gen_method_item(
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name(#args) }
+             match type_param_count {
+              0 => quote! { (*self).#name(#args) },
+              _ => quote! { (*self).#name::#generic_types(#args) }
+            }
         }
 
         // `&self` or `&mut self` receiver
