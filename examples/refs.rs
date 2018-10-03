@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use auto_impl::auto_impl;
 
-
 /// This trait can be implemented for all reference or pointer types: &, &mut,
 /// Box, Rc and Arc.
 ///
@@ -47,14 +46,13 @@ fn show_first(c: impl DisplayCollection) {
     }
 }
 
-
 fn main() {
     let v = vec!["dog", "cat"];
     let boxed = Box::new(v.clone());
 
-    show_first(v.clone());      // Vec<&str>    (our manual impl)
-    show_first(&v);             // &Vec<&str>   (auto-impl)
-    show_first(&&v);            // &&Vec<&str>  (works too, of course)
-    show_first(boxed.clone());  // Box<Vec<&str>> (auto-impl)
-    show_first(&boxed);         // &Box<Vec<&str>>
+    show_first(v.clone()); // Vec<&str>    (our manual impl)
+    show_first(&v); // &Vec<&str>   (auto-impl)
+    show_first(&&v); // &&Vec<&str>  (works too, of course)
+    show_first(boxed.clone()); // Box<Vec<&str>> (auto-impl)
+    show_first(&boxed); // &Box<Vec<&str>>
 }
