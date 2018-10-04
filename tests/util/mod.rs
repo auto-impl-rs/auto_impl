@@ -21,11 +21,14 @@ pub(crate) fn get_dep_path() -> PathBuf {
     // Obtain the build plan from `cargo build`. This JSON plan will tell us
     // several things, including the path of the output of `auto_impl` (usually
     // an .so file on Linux).
-    let output = Command::new(env!("CARGO"))
-        .args(&["build", "-Z", "unstable-options", "--build-plan"])
-        .stderr(Stdio::inherit())
-        .output()
-        .expect("failed to run `cargo build`");
+    let mut command = Command::new(env!("CARGO"));
+    command.args(&["build", "-Z", "unstable-options", "--build-plan"]);
+    command.stderr(Stdio::inherit());
+
+    #[cfg(feature = "nightly")]
+    command.arg("--features=nightly");
+
+    let output = command.output().expect("failed to run `cargo build`");
 
     if !output.status.success() {
         panic!("failed to run `cargo build`");
