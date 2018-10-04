@@ -2,16 +2,16 @@ use crate::proc_macro::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemMethod,
-    TraitItemType, TraitItemConst,
+    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemConst,
+    TraitItemMethod, TraitItemType,
 };
 
 use crate::{
     analyze::find_suitable_param_names,
-    attr::{OurAttr, is_our_attr, parse_our_attr},
+    attr::{is_our_attr, parse_our_attr, OurAttr},
     diag::{DiagnosticExt, SpanExt},
     proxy::ProxyType,
-    spanned::Spanned
+    spanned::Spanned,
 };
 
 
@@ -430,6 +430,10 @@ fn gen_method_item(
     // Generate the list of argument used to call the method.
     let args = get_arg_list(sig.decl.inputs.iter())?;
 
+    // Builds turbofish with generic types
+    let (_, generic_types, _) = sig.decl.generics.split_for_impl();
+    let generic_types = generic_types.as_turbofish();
+
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
     let name = &sig.ident;
@@ -442,20 +446,20 @@ fn gen_method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box.
-            quote! { #proxy_ty_param::#name(#args) }
+            quote! { #proxy_ty_param::#name #generic_types(#args) }
         }
 
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name(#args) }
+            quote! { (*self).#name#generic_types(#args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (**self).#name(#args) }
+            quote! { (*self).#name#generic_types(#args) }
         }
     };
 
