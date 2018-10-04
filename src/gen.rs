@@ -430,9 +430,19 @@ fn gen_method_item(
     // Generate the list of argument used to call the method.
     let args = get_arg_list(sig.decl.inputs.iter())?;
 
-    // Builds turbofish with generic types
-    let (_, generic_types, _) = sig.decl.generics.split_for_impl();
-    let generic_types = generic_types.as_turbofish();
+    // Builds turbofish with generic types (without lifetimes)
+    let generic_types = sig.decl.generics
+        .type_params()
+        .map(|param| {
+            let name = &param.ident;
+            quote! { #name , }
+        })
+        .collect::<TokenStream2>();
+    let generic_types = if generic_types.is_empty() {
+        generic_types
+    } else {
+        quote ! { ::<#generic_types> }
+    };
 
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
@@ -452,14 +462,14 @@ fn gen_method_item(
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name#generic_types(#args) }
+            quote! { (*self).#name #generic_types(#args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (*self).#name#generic_types(#args) }
+            quote! { (*self).#name #generic_types(#args) }
         }
     };
 
