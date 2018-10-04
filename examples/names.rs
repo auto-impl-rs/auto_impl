@@ -26,10 +26,13 @@
 //! Thus, the names `H` and `'d` are used. Run `cargo expand --example names`
 //! to see the output.
 
+
 // This code is really ugly on purpose...
 #![allow(non_snake_case, dead_code, unused_variables)]
 
 use auto_impl::auto_impl;
+
+
 
 struct X {}
 trait Z {}

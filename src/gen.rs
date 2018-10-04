@@ -14,6 +14,8 @@ use crate::{
     spanned::Spanned,
 };
 
+
+
 /// Generates one complete impl of the given trait for each of the given proxy
 /// types. All impls are returned as token stream.
 pub(crate) fn gen_impls(
@@ -52,6 +54,7 @@ fn header(
     let trait_ident = &trait_def.ident;
     let trait_path = quote! { #trait_ident #trait_generics };
 
+
     // Here we assemble the parameter list of the impl (the thing in
     // `impl< ... >`). This is simply the parameter list of the trait with
     // one or two parameters added. For a trait `trait Foo<'x, 'y, A, B>`,
@@ -64,10 +67,9 @@ fn header(
     let impl_generics = {
         // Determine if our proxy type needs a lifetime parameter
         let (mut params, ty_bounds) = match proxy_type {
-            ProxyType::Ref | ProxyType::RefMut => (
-                quote! { #proxy_lt_param, },
-                quote! { : #proxy_lt_param + #trait_path },
-            ),
+            ProxyType::Ref | ProxyType::RefMut => {
+                (quote! { #proxy_lt_param, }, quote! { : #proxy_lt_param + #trait_path })
+            }
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => (quote!{}, quote! { : #trait_path }),
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
                 let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
@@ -78,10 +80,9 @@ fn header(
         // Append all parameters from the trait. Sadly, `impl_generics`
         // includes the angle brackets `< >` so we have to remove them like
         // this.
-        let mut tts = impl_generics
-            .into_token_stream()
+        let mut tts = impl_generics.into_token_stream()
             .into_iter()
-            .skip(1) // the opening `<`
+            .skip(1)    // the opening `<`
             .collect::<Vec<_>>();
         tts.pop(); // the closing `>`
         params.append_all(&tts);
@@ -98,18 +99,20 @@ fn header(
         params
     };
 
+
     // The tokens after `for` in the impl header (the type the trait is
     // implemented for).
     let self_ty = match *proxy_type {
-        ProxyType::Ref => quote! { & #proxy_lt_param #proxy_ty_param },
-        ProxyType::RefMut => quote! { & #proxy_lt_param mut #proxy_ty_param },
-        ProxyType::Arc => quote! { ::std::sync::Arc<#proxy_ty_param> },
-        ProxyType::Rc => quote! { ::std::rc::Rc<#proxy_ty_param> },
-        ProxyType::Box => quote! { ::std::boxed::Box<#proxy_ty_param> },
-        ProxyType::Fn => quote! { #proxy_ty_param },
-        ProxyType::FnMut => quote! { #proxy_ty_param },
-        ProxyType::FnOnce => quote! { #proxy_ty_param },
+        ProxyType::Ref      => quote! { & #proxy_lt_param #proxy_ty_param },
+        ProxyType::RefMut   => quote! { & #proxy_lt_param mut #proxy_ty_param },
+        ProxyType::Arc      => quote! { ::std::sync::Arc<#proxy_ty_param> },
+        ProxyType::Rc       => quote! { ::std::rc::Rc<#proxy_ty_param> },
+        ProxyType::Box      => quote! { ::std::boxed::Box<#proxy_ty_param> },
+        ProxyType::Fn       => quote! { #proxy_ty_param },
+        ProxyType::FnMut    => quote! { #proxy_ty_param },
+        ProxyType::FnOnce   => quote! { #proxy_ty_param },
     };
+
 
     // Combine everything
     Ok(quote! {
@@ -138,11 +141,10 @@ fn gen_fn_type_for_trait(
 
     // If this requirement is not satisfied, we emit an error.
     if method.is_none() || trait_def.items.len() > 1 {
-        return trait_def
-            .span()
+        return trait_def.span()
             .err(
                 "this trait cannot be auto-implemented for Fn-traits (only traits with exactly \
-                 one method and no other items are allowed)",
+                 one method and no other items are allowed)"
             )
             .emit_with_attr_note();
     }
@@ -151,38 +153,37 @@ fn gen_fn_type_for_trait(
     let method = method.unwrap();
     let sig = &method.sig;
 
+
     // Check for forbidden modifier of the method
     if let Some(const_token) = sig.constness {
-        return const_token
-            .span()
+        return const_token.span()
             .err(format!(
                 "the trait '{}' cannot be auto-implemented for Fn-traits: const methods are not \
-                 allowed",
+                    allowed",
                 trait_def.ident,
             ))
             .emit_with_attr_note();
     }
 
     if let Some(unsafe_token) = &sig.unsafety {
-        return unsafe_token
-            .span()
+        return unsafe_token.span()
             .err(format!(
                 "the trait '{}' cannot be auto-implemented for Fn-traits: unsafe methods are not \
-                 allowed",
+                    allowed",
                 trait_def.ident,
             ))
             .emit_with_attr_note();
     }
 
     if let Some(abi_token) = &sig.abi {
-        return abi_token
-            .span()
+        return abi_token.span()
             .err(format!(
                 "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
                 trait_def.ident,
             ))
             .emit_with_attr_note();
     }
+
 
     // =======================================================================
     // Check if the trait can be implemented for the given proxy type
@@ -214,8 +215,11 @@ fn gen_fn_type_for_trait(
     if let Some((fn_traits, receiver, allowed)) = err {
         let msg = format!(
             "the trait '{}' cannot be auto-implemented for {}, because this method has \
-             {} receiver{}",
-            trait_def.ident, fn_traits, receiver, allowed,
+                {} receiver{}",
+            trait_def.ident,
+            fn_traits,
+            receiver,
+            allowed,
         );
 
         return method.sig.span().err(msg).emit_with_attr_note();
@@ -279,6 +283,7 @@ fn gen_fn_type_for_trait(
         }
     }
 
+
     Ok(quote! {
         for< #(#local_lifetimes),* > #fn_name (#arg_types) #ret
     })
@@ -291,37 +296,37 @@ fn gen_items(
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
 ) -> Result<Vec<TokenStream2>, ()> {
-    trait_def
-        .items
-        .iter()
-        .map(|item| {
-            match item {
-                TraitItem::Const(c) => gen_const_item(proxy_type, c, trait_def, proxy_ty_param),
-                TraitItem::Method(method) => {
-                    gen_method_item(proxy_type, method, trait_def, proxy_ty_param)
-                }
-                TraitItem::Type(ty) => gen_type_item(proxy_type, ty, trait_def, proxy_ty_param),
-                TraitItem::Macro(mac) => {
-                    // We cannot resolve the macro invocation and thus cannot know
-                    // if it adds additional items to the trait. Thus, we have to
-                    // give up.
-                    mac.span()
-                        .err(
-                            "traits with macro invocations in their bodies are not \
-                             supported by auto_impl",
-                        )
-                        .emit_with_attr_note()
-                }
-                TraitItem::Verbatim(v) => {
-                    // I don't quite know when this happens, but it's better to
-                    // notify the user with a nice error instead of panicking.
-                    v.span()
-                        .err("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
-                        .emit_with_attr_note()
-                }
+    trait_def.items.iter().map(|item| {
+        match item {
+            TraitItem::Const(c) => {
+                gen_const_item(proxy_type, c, trait_def, proxy_ty_param)
             }
-        })
-        .collect()
+            TraitItem::Method(method) => {
+                gen_method_item(proxy_type, method, trait_def, proxy_ty_param)
+            }
+            TraitItem::Type(ty) => {
+                gen_type_item(proxy_type, ty, trait_def, proxy_ty_param)
+            }
+            TraitItem::Macro(mac) => {
+                // We cannot resolve the macro invocation and thus cannot know
+                // if it adds additional items to the trait. Thus, we have to
+                // give up.
+                mac.span()
+                    .err(
+                        "traits with macro invocations in their bodies are not \
+                         supported by auto_impl"
+                    )
+                    .emit_with_attr_note()
+            },
+            TraitItem::Verbatim(v) => {
+                // I don't quite know when this happens, but it's better to
+                // notify the user with a nice error instead of panicking.
+                v.span()
+                    .err("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
+                    .emit_with_attr_note()
+            }
+        }
+    }).collect()
 }
 
 /// Generates the implementation of an associated const item described by
@@ -337,12 +342,11 @@ fn gen_const_item(
 ) -> Result<TokenStream2, ()> {
     // A trait with associated consts cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
-        return item
-            .span()
+        return item.span()
             .err(format!(
                 "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
-                 associated consts (only traits with a single method can be implemented \
-                 for Fn-traits)",
+                    associated consts (only traits with a single method can be implemented \
+                    for Fn-traits)",
                 trait_def.ident,
             ))
             .emit_with_attr_note();
@@ -370,12 +374,11 @@ fn gen_type_item(
 ) -> Result<TokenStream2, ()> {
     // A trait with associated types cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
-        return item
-            .span()
+        return item.span()
             .err(format!(
                 "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
-                 associated types (only traits with a single method can be implemented \
-                 for Fn-traits)",
+                    associated types (only traits with a single method can be implemented \
+                    for Fn-traits)",
                 trait_def.ident,
             ))
             .emit_with_attr_note();
@@ -407,12 +410,10 @@ fn gen_method_item(
         if item.default.is_some() {
             return Ok(TokenStream2::new());
         } else {
-            return item
-                .sig
-                .span()
+            return item.sig.span()
                 .err(format!(
                     "the method `{}` has the attribute `keep_default_for` but is not a default \
-                     method (no body is provided)",
+                        method (no body is provided)",
                     item.sig.ident,
                 ))
                 .emit_with_attr_note();
@@ -467,6 +468,7 @@ fn gen_method_item(
     Ok(quote! { #sig { #body }})
 }
 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelfType {
     None,
@@ -504,24 +506,29 @@ fn check_receiver_compatible(
     sig_span: Span,
 ) -> Result<(), ()> {
     match (proxy_type, self_arg) {
-        (ProxyType::Ref, SelfType::Mut) | (ProxyType::Ref, SelfType::Value) => sig_span
-            .err(format!(
-                "the trait `{}` cannot be auto-implemented for immutable references, because \
-                 this method has a `{}` receiver (only `&self` and no receiver are \
-                 allowed)",
-                trait_name,
-                self_arg.as_str().unwrap(),
-            ))
-            .emit_with_attr_note(),
+        (ProxyType::Ref, SelfType::Mut)
+        | (ProxyType::Ref, SelfType::Value) => {
+            sig_span
+                .err(format!(
+                    "the trait `{}` cannot be auto-implemented for immutable references, because \
+                        this method has a `{}` receiver (only `&self` and no receiver are \
+                        allowed)",
+                    trait_name,
+                    self_arg.as_str().unwrap(),
+                ))
+                .emit_with_attr_note()
+        }
 
-        (ProxyType::RefMut, SelfType::Value) => sig_span
-            .err(format!(
-                "the trait `{}` cannot be auto-implemented for mutable references, because \
-                 this method has a `self` receiver (only `&self`, `&mut self` and no \
-                 receiver are allowed)",
-                trait_name,
-            ))
-            .emit_with_attr_note(),
+        (ProxyType::RefMut, SelfType::Value) => {
+            sig_span
+                .err(format!(
+                    "the trait `{}` cannot be auto-implemented for mutable references, because \
+                        this method has a `self` receiver (only `&self`, `&mut self` and no \
+                        receiver are allowed)",
+                    trait_name,
+                ))
+                .emit_with_attr_note()
+        }
 
         (ProxyType::Rc, SelfType::Mut)
         | (ProxyType::Rc, SelfType::Value)
@@ -536,8 +543,8 @@ fn check_receiver_compatible(
             sig_span
                 .err(format!(
                     "the trait `{}` cannot be auto-implemented for {}-smartpointer, because \
-                     this method has a `{}` receiver (only `&self` and no receiver are \
-                     allowed)",
+                        this method has a `{}` receiver (only `&self` and no receiver are \
+                        allowed)",
                     trait_name,
                     ptr_name,
                     self_arg.as_str().unwrap(),
@@ -577,12 +584,10 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
                 } else {
-                    return arg
-                        .pat
-                        .span()
+                    return arg.pat.span()
                         .err(
                             "argument patterns are not supported by #[auto-impl]. Please use \
-                             a simple name (not `_`).",
+                             a simple name (not `_`)."
                         )
                         .emit_with_attr_note();
                 }
@@ -612,9 +617,7 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
 /// and if it contains the given proxy type.
 fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> Result<bool, ()> {
     // Get an iterator of just the attribute we are interested in.
-    let mut it = m
-        .attrs
-        .iter()
+    let mut it = m.attrs.iter()
         .filter(|attr| is_our_attr(attr))
         .map(|attr| parse_our_attr(&attr));
 
@@ -632,9 +635,7 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> Resul
 
     // Check if there is another such attribute (which we disallow)
     if it.next().is_some() {
-        return m
-            .sig
-            .span()
+        return m.sig.span()
             .err("found two `keep_default_for` attributes on one method")
             .emit_with_attr_note();
     }
