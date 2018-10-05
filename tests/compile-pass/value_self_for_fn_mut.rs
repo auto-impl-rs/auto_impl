@@ -3,8 +3,7 @@ use auto_impl::auto_impl;
 
 #[auto_impl(FnMut)]
 trait Foo {
-    // TODO: this `mut` shouldn't be possible (see #23)
-    fn execute(mut self);
+    fn execute(self);
 }
 
 fn foo(_: impl Foo) {}
