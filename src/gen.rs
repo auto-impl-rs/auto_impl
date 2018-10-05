@@ -430,9 +430,39 @@ fn gen_method_item(
     // Generate the list of argument used to call the method.
     let args = get_arg_list(sig.decl.inputs.iter())?;
 
-    // Builds turbofish with generic types
-    let (_, generic_types, _) = sig.decl.generics.split_for_impl();
-    let generic_types = generic_types.as_turbofish();
+    // Build the turbofish type parameters. We need to pass type parameters
+    // explicitly as they cannot be inferred in all cases (e.g. something like
+    // `mem::size_of`). However, we don't explicitly specify lifetime
+    // parameters. Most lifetime parameters are so called late-bound lifetimes
+    // (ones that stick to input parameters) and Rust prohibits us from
+    // specifying late-bound lifetimes explicitly (which is not a problem,
+    // because those can always be correctly inferred). It would be possible to
+    // explicitly specify early-bound lifetimes, but this is hardly useful.
+    // Early-bound lifetimes are lifetimes that are only attached to the return
+    // type. Something like:
+    //
+    //     fn foo<'a>() -> &'a i32
+    //
+    // It's hard to imagine how such a function would even work. So since those
+    // functions are really rare and special, we won't support them. In
+    // particular, for us to determine if a lifetime parameter is early- or
+    // late-bound would be *really* difficult.
+    //
+    // So we just specify type parameters. In the future, however, we need to
+    // add support for const parameters. But those are not remotely stable yet,
+    // so we can wait a bit still.
+    let generic_types = sig.decl.generics
+        .type_params()
+        .map(|param| {
+            let name = &param.ident;
+            quote! { #name , }
+        })
+        .collect::<TokenStream2>();
+    let generic_types = if generic_types.is_empty() {
+        generic_types
+    } else {
+        quote ! { ::<#generic_types> }
+    };
 
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
@@ -452,14 +482,14 @@ fn gen_method_item(
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name#generic_types(#args) }
+            quote! { (*self).#name #generic_types(#args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (*self).#name#generic_types(#args) }
+            quote! { (*self).#name #generic_types(#args) }
         }
     };
 

@@ -2,7 +2,10 @@
 //! references, some common smart pointers and closures.
 
 
-#![cfg_attr(feature = "nightly", feature(proc_macro_diagnostic, proc_macro_span))]
+#![cfg_attr(
+    feature = "nightly",
+    feature(proc_macro_diagnostic, proc_macro_span, proc_macro_def_site)
+)]
 
 extern crate proc_macro;
 #[macro_use]

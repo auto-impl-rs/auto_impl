@@ -1,14 +1,21 @@
 language: rust
-rust:
-  - nightly
 
-script:
-  - cargo build --verbose
-  - cargo test --verbose
-  - cargo build --verbose --features=nightly
-  - cargo test --verbose --features=nightly
+matrix:
+  include:
+    - name: "Build & test on nightly WITH nightly feature"
+      rust: nightly
+      script:
+        - cargo build --verbose --features=nightly || travis_terminate 1
+        - cargo test --verbose --features=nightly || travis_terminate 1
+    - name: "Build & test on nightly WITHOUT nightly feature"
+      rust: nightly
+      script:
+        - cargo build --verbose || travis_terminate 1
+        - cargo test --verbose || travis_terminate 1
+    - name: "Build on beta"
+      rust: beta
+      script: cargo build --verbose
 
 env:
-  - RUST_FLAGS="--deny warnings"
-
-cache: cargo
+  global:
+    - RUSTFLAGS="--deny warnings"
