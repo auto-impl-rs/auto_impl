@@ -1,216 +1,50 @@
-# `auto_impl` [![Join the chat at https://gitter.im/auto-impl-rs/Lobby](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/auto-impl-rs/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/auto-impl-rs/auto_impl.svg?branch=master)](https://travis-ci.org/auto-impl-rs/auto_impl) [![Crates.io](https://img.shields.io/crates/v/auto_impl.svg)](https://crates.io/crates/auto_impl)
+# `auto_impl` [![Join the chat at https://gitter.im/auto-impl-rs/Lobby](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/auto-impl-rs/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/auto-impl-rs/auto_impl.svg?branch=master)](https://travis-ci.org/auto-impl-rs/auto_impl) [![Crates.io](https://img.shields.io/crates/v/auto_impl.svg)](https://crates.io/crates/auto_impl) [![docs](https://docs.rs/auto_impl/badge.svg)](https://docs.rs/auto_impl)
 
-A simple compiler plugin for automatically implementing a trait for some common smart pointers and closures.
+A proc-macro attribute for automatically implementing a trait for references,
+some common smart pointers and closures.
 
 # Usage
 
-This library requires the `nightly` channel.
+This library requires Rust 1.30.0 or newer.
 
-Add `auto_impl` to your `Cargo.toml`:
-
-```
-auto_impl = "*"
-```
-
-Reference in your crate root:
+Add `auto_impl` to your `Cargo.toml` and just use it in your crate:
 
 ```rust
-#![feature(proc_macro)]
-
-extern crate auto_impl;
-
+// In Rust 2015 you still need `extern crate auto_impl;` at your crate root
 use auto_impl::auto_impl;
 ```
 
-Add an `auto_impl` attribute to traits you want to automatically implement for wrapper types:
+Add an `auto_impl` attribute to traits you want to automatically implement for wrapper types. Here is a small example:
 
 ```rust
-#[auto_impl(&, Arc)]
-pub trait OrderStoreFilter {
-    fn filter<F>(&self, predicate: F) -> Result<Iter, Error>
-    where
-        F: Fn(&OrderData) -> bool;
+// This will generate two additional impl blocks: one `for &T` and one
+// `for Box<T>` where `T: Foo`.
+#[auto_impl(&, Box)]
+trait Foo {
+    fn foo(&self);
 }
+
+impl Foo for i32 {
+    fn foo(&self) {}
+}
+
+fn requires_foo(_: impl Foo) {}
+
+
+requires_foo(0i32);  // works: through the impl we defined above
+requires_foo(&0i32); // works: through the generated impl
+requires_foo(Box::new(0i32)); // works: through the generated impl
 ```
 
-Now anywhere that requires a `T: OrderStoreFilter` will also accept an `&T` or `Arc<T>` where `T` implements `OrderStoreFilter`.
+For more explanations, please see [**the documentation**](https://docs.rs/auto_impl) and for more examples, see [the examples folder](https://github.com/auto-impl-rs/auto_impl/tree/master/examples).
 
-## Specifics
 
-The following types are supported and can be freely combined:
+---
 
-- [`Arc`](https://doc.rust-lang.org/std/sync/struct.Arc.html)
-- [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)
-- [`Box`](https://doc.rust-lang.org/std/boxed/struct.Box.html)
+## License
 
-The following types are also supported, but require a blanket implementation (you can only have one of these per `trait`):
+Licensed under MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT).
 
-- [`Fn`](https://doc.rust-lang.org/std/ops/trait.Fn.html)
-- [`FnMut`](https://doc.rust-lang.org/std/ops/trait.FnMut.html)
-- [`FnOnce`](https://doc.rust-lang.org/std/ops/trait.FnOnce.html)
-- `&`
-- `&mut`
+### Contribution
 
-## Implement a trait for `Box`
-
-```rust
-#[auto_impl(Box)]
-trait MyTrait<'a, T> 
-    where T: AsRef<str>
-{
-    type Type1;
-    type Type2;
-
-    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String>;
-    fn execute2(&self) -> Self::Type2;
-    fn execute3(self) -> Self::Type1;
-    fn execute4() -> &'static str;
-}
-```
-
-Will expand to:
-
-```rust
-impl<'a, T, TAutoImpl> MyTrait<'a, T> for ::std::boxed::Box<TAutoImpl>
-    where TAutoImpl: MyTrait<'a, T>,
-          T: AsRef<str>
-{
-    type Type1 = TAutoImpl::Type1;
-    type Type2 = TAutoImpl::Type2;
-
-    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String> {
-        (**self).execute1(arg1)
-    }
-
-    fn execute2(&self) -> Self::Type2 {
-        (**self).execute2()
-    }
-
-    fn execute3(self) -> Self::Type1 {
-        (*self).execute3()
-    }
-
-    fn execute4() -> &'static str {
-        TAutoImpl::execute4()
-    }
-}
-```
-
-There are no restrictions on `auto_impl` for `Box`.
-
-## Implement a trait for a smart pointer
-
-Add the `#[auto_impl]` attribute to traits to automatically implement them for wrapper types:
-
-```rust
-#[auto_impl(Arc, Rc)]
-trait MyTrait<'a, T> 
-    where T: AsRef<str>
-{
-    type Type1;
-    type Type2;
-
-    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String>;
-    fn execute2(&self) -> Self::Type2;
-}
-```
-
-Will expand to:
-
-```rust
-impl<'a, T, TAutoImpl> MyTrait<'a, T> for ::std::sync::Arc<TAutoImpl>
-    where TAutoImpl: MyTrait<'a, T>,
-          T: AsRef<str>
-{
-    type Type1 = TAutoImpl::Type1;
-    type Type2 = TAutoImpl::Type2;
-
-    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String> {
-        (**self).execute1(arg1)
-    }
-
-    fn execute2(&self) -> Self::Type2 {
-        (**self).execute2()
-    }
-}
-
-impl<'a, T, TAutoImpl> MyTrait<'a, T> for ::std::rc::Rc<TAutoImpl>
-    where TAutoImpl: MyTrait<'a, T>,
-          T: AsRef<str>
-{
-    type Type1 = TAutoImpl::Type1;
-    type Type2 = TAutoImpl::Type2;
-
-    fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String> {
-        (**self).execute1(arg1)
-    }
-
-    fn execute2(&self) -> Self::Type2 {
-        (**self).execute2()
-    }
-}
-```
-
-There are a few restrictions on `#[auto_impl]` for smart pointers. The trait must:
-
-- Only have methods that take `&self` or have no receiver (static)
-
-## Implement a trait for a closure
-
-```rust
-#[auto_impl(Fn)]
-trait MyTrait<'a, T> {
-    fn execute<'b>(&'a self, arg1: &'b T, arg2: &'static str) -> Result<(), String>;
-}
-```
-
-Will expand to:
-
-```rust
-impl<'a, T, TAutoImpl> MyTrait<'a, T> for TAutoImpl
-    where TAutoImpl: ::std::ops::Fn(&T, &'static str) -> Result<(), String>
-{
-    fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
-        self(arg1, arg2)
-    }
-}
-```
-
-There are a few restrictions on `#[auto_impl]` for closures. The trait must:
-
-- Have a single method
-- Have no associated types
-- Have no non-static lifetimes in the return type
-
-## Implement a trait for a borrowed reference
-
-```rust
-#[auto_impl(&, &mut)]
-trait MyTrait<'a, T> {
-    fn execute<'b>(&'a self, arg1: &'b T, arg2: &'static str) -> Result<(), String>;
-}
-```
-
-Will expand to:
-
-```rust
-impl<'auto, 'a, T, TAutoImpl> MyTrait<'a, T> for &'auto TAutoImpl {
-    fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
-        (**self).execute(arg1, arg2)
-    }
-}
-
-impl<'auto, 'a, T, TAutoImpl> MyTrait<'a, T> for &'auto mut TAutoImpl {
-    fn execute<'b>(&'a self, arg1: &'b T, arg1: &'static str) -> Result<(), String> {
-        (**self).execute(arg1, arg2)
-    }
-}
-```
-
-There are a few restrictions on `#[auto_impl]` for immutably borrowed references. The trait must:
-
-- Only have methods that take `&self` or have no receiver (static)
-
-There are a few restrictions on `#[auto_impl]` for mutably borrowed references. The trait must:
-
-- Only have methods that take `&self`, `&mut self` or have no receiver (static)
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be licensed as above, without any additional terms or conditions.
