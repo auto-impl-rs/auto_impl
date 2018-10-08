@@ -494,7 +494,6 @@ fn gen_method_item(
     };
 
     // Combine body with signature
-    // TODO: maybe add `#[inline]`?
     Ok(quote! { #sig { #body }})
 }
 
