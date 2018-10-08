@@ -470,7 +470,7 @@ fn gen_method_item(
     let body = match self_arg {
         // Fn proxy types get a special treatment
         _ if proxy_type.is_fn() => {
-            quote! { self(#args) }
+            quote! { ({self})(#args) }
         }
 
         // No receiver
