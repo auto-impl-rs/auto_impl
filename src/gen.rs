@@ -482,14 +482,14 @@ fn gen_method_item(
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name #generic_types(#args) }
+            quote! { #proxy_ty_param::#name #generic_types(*self, #args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (*self).#name #generic_types(#args) }
+            quote! { #proxy_ty_param::#name #generic_types(self, #args) }
         }
     };
 
