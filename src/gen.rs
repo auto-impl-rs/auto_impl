@@ -466,7 +466,7 @@ fn gen_method_item(
 
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
-    let name = &sig.ident;
+    let fn_name = &sig.ident;
     let body = match self_arg {
         // Fn proxy types get a special treatment
         _ if proxy_type.is_fn() => {
@@ -476,25 +476,24 @@ fn gen_method_item(
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smartpointer or Box.
-            quote! { #proxy_ty_param::#name #generic_types(#args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(#args) }
         }
 
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { (*self).#name #generic_types(#args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(*self, #args) }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { (*self).#name #generic_types(#args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(self, #args) }
         }
     };
 
     // Combine body with signature
-    // TODO: maybe add `#[inline]`?
     Ok(quote! { #sig { #body }})
 }
 
