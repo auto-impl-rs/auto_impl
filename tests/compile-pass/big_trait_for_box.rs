@@ -12,4 +12,5 @@ trait BoxTrait1<'a, T: for<'b> Into<&'b str>> {
     fn execute2(&mut self, arg1: i32) -> Self::Type2;
     fn execute3(self) -> Self::Type1;
     fn execute4(arg1: String) -> Result<i32, String>;
+    fn execute5() -> String;
 }
