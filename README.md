@@ -17,8 +17,8 @@ use auto_impl::auto_impl;
 Add an `auto_impl` attribute to traits you want to automatically implement for wrapper types. Here is a small example:
 
 ```rust
-// This will generate two additional impl blocks: one `for &T` and one
-// `for Box<T>` where `T: Foo`.
+// This will generate two additional impl blocks: one for `&T` and one
+// for `Box<T>` where `T: Foo`.
 #[auto_impl(&, Box)]
 trait Foo {
     fn foo(&self);

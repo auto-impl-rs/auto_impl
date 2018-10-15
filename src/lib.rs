@@ -28,8 +28,8 @@
 //!
 //! # Basic syntax and supported types
 //!
-//! You have to annotate your trait with the `#[auto_impl(...)]` attribute. You
-//! can only use that attribute on traits and not on structs, enums or anything
+//! You can annotate your trait with the `#[auto_impl(...)]` attribute. That
+//! attribute can only be used on traits and not on structs, enums or anything
 //! else.
 //!
 //! In the attribute, you have to specify all so called *proxy types* (the
@@ -100,11 +100,11 @@
 //!
 //! // All these calls work, as the `#[auto_impl]` attribute generated four
 //! // impls for all those proxy types
-//! require_animal(Dog("Niko".into()));
-//! require_animal(&Dog("Alex".into()));
-//! require_animal(&mut Dog("Steve".into()));
-//! require_animal(Box::new(Dog("Carol".into())));
-//! require_animal(Rc::new(Dog("Aaron".into())));
+//! require_animal(Dog("Doggo".into()));
+//! require_animal(&Dog("Doggo".into()));
+//! require_animal(&mut Dog("Doggo".into()));
+//! require_animal(Box::new(Dog("Doggo".into())));
+//! require_animal(Rc::new(Dog("Doggo".into())));
 //! ```
 //!
 //!
