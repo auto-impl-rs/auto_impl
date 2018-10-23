@@ -14,7 +14,9 @@ matrix:
         - cargo test --verbose || travis_terminate 1
     - name: "Build on beta"
       rust: beta
-      script: cargo build --verbose
+      script:
+        - cargo build --verbose
+        - cargo build --verbose --examples
 
 env:
   global:
