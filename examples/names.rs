@@ -1,15 +1,15 @@
-//! Example to demonstrate how `auto_impl` chooses a name for the type and
-//! lifetime parameter.
+//! Example to demonstrate how `auto_impl` chooses a name for the type
+//! parameter.
 //!
 //! For documentation and compiler errors it would be nice to have very simple
-//! names for type and lifetime parameters:
+//! names for the type parameter:
 //!
 //! ```rust
 //! // not nice
-//! impl<'auto_impl_lifetime, AutoImplT> Foo for &'auto_impl_lifetime AutoImplT { ...}
+//! impl<AutoImplT> Foo for &AutoImplT { ...}
 //!
 //! // better
-//! impl<'a, T> Foo for &'a T { ... }
+//! impl<T> Foo for &T { ... }
 //! ```
 //!
 //! `auto_impl` tries the full alphabet, picking a name that is not yet taken.
@@ -18,13 +18,11 @@
 //! in the trait def -- apart from names only appearing in the body of provided
 //! methods.
 //!
-//! In the trait below, a bunch of names are already "taken":
-//! - type names: T--Z and A--G (H is not taken, because it only appear in the
-//!   default method body)
-//! - lifetime names: 'a--'c
+//! In the trait below, a bunch of type names are already "taken": T--Z and
+//! A--H. Thus, the name `I` will be used.
 //!
-//! Thus, the names `H` and `'d` are used. Run `cargo expand --example names`
-//! to see the output.
+//! Thus, the name `H` is used. Run `cargo expand --example names` to see the
+//! output.
 
 
 // This code is really ugly on purpose...
@@ -45,12 +43,12 @@ struct G<T>(Vec<T>);
 struct H {}
 
 #[auto_impl(&)]
-trait U<'a, V> {
+trait U<'a, T, V> {
     const W: Option<Box<&'static X>>;
 
     type Y: Z;
 
-    fn A<'b, 'c>(&self, B: C, D: E<&[F; 1]>) -> G<fn((H,))> {
+    fn A(&self, B: C, D: E<&[F; 1]>) -> G<fn((H,))> {
         let H = ();
         unimplemented!()
     }

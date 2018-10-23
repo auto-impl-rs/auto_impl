@@ -2,12 +2,12 @@ use crate::proc_macro::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, TraitItem, TraitItemConst,
+    FnArg, Ident, ItemTrait, MethodSig, Pat, PatIdent, TraitItem, TraitItemConst,
     TraitItemMethod, TraitItemType,
 };
 
 use crate::{
-    analyze::find_suitable_param_names,
+    analyze::find_suitable_param_name,
     attr::{is_our_attr, parse_our_attr, OurAttr},
     diag::{DiagnosticExt, SpanExt},
     proxy::ProxyType,
@@ -24,11 +24,11 @@ pub(crate) fn gen_impls(
 ) -> Result<TokenStream2, ()> {
     let mut tokens = TokenStream2::new();
 
-    let (proxy_ty_param, proxy_lt_param) = find_suitable_param_names(trait_def);
+    let proxy_ty_param = find_suitable_param_name(trait_def);
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
-        let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param)?;
+        let header = gen_header(proxy_type, trait_def, &proxy_ty_param)?;
         let items = gen_items(proxy_type, trait_def, &proxy_ty_param)?;
 
         tokens.append_all(quote! {
@@ -45,7 +45,6 @@ fn gen_header(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
-    proxy_lt_param: &Lifetime,
 ) -> Result<TokenStream2, ()> {
     // Generate generics for impl positions from trait generics.
     let (impl_generics, trait_generics, where_clause) = trait_def.generics.split_for_impl();
@@ -57,54 +56,56 @@ fn gen_header(
 
     // Here we assemble the parameter list of the impl (the thing in
     // `impl< ... >`). This is simply the parameter list of the trait with
-    // one or two parameters added. For a trait `trait Foo<'x, 'y, A, B>`,
+    // one parameter added. For a trait `trait Foo<'x, 'y, A, B>`,
     // it will look like this:
     //
-    //    '{proxy_lt_param}, 'x, 'y, A, B, {proxy_ty_param}
+    //    'x, 'y, A, B, {proxy_ty_param}
     //
-    // The `'{proxy_lt_param}` in the beginning is only added when the proxy
-    // type is `&` or `&mut`.
     let impl_generics = {
-        // Determine if our proxy type needs a lifetime parameter
-        let (mut params, ty_bounds) = match proxy_type {
-            ProxyType::Ref | ProxyType::RefMut => {
-                (quote! { #proxy_lt_param, }, quote! { : #proxy_lt_param + #trait_path })
-            }
-            ProxyType::Box | ProxyType::Rc | ProxyType::Arc => (quote!{}, quote! { : #trait_path }),
+        // Determine the correct proxy type bound
+        let ty_bounds = match proxy_type {
+            ProxyType::Ref
+            | ProxyType::RefMut
+            | ProxyType::Box
+            | ProxyType::Rc
+            | ProxyType::Arc => quote! { : #trait_path },
+
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
                 let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
-                (quote!{}, quote! { : #fn_bound })
+                quote! { : #fn_bound }
             }
         };
 
         // Append all parameters from the trait. Sadly, `impl_generics`
         // includes the angle brackets `< >` so we have to remove them like
         // this.
-        let mut tts = impl_generics.into_token_stream()
-            .into_iter()
-            .skip(1)    // the opening `<`
-            .collect::<Vec<_>>();
-        tts.pop(); // the closing `>`
-        params.append_all(&tts);
+        let impl_generics_ts = impl_generics.into_token_stream();
 
-        // Append proxy type parameter (if there aren't any parameters so far,
-        // we need to add a comma first).
-        let comma = if params.is_empty() || tts.is_empty() {
-            quote!{}
+        if impl_generics_ts.is_empty() {
+            quote! { #proxy_ty_param #ty_bounds }
         } else {
-            quote! { , }
-        };
-        params.append_all(quote! { #comma #proxy_ty_param #ty_bounds });
+            // If the token stream is not empty, it contains `< >`. We need to
+            // remove those to add parameters (and we are adding angle brackets
+            // later anyway).
+            let mut tokens = impl_generics_ts.into_iter()
+                .skip(1) // the opening `<`
+                .collect::<Vec<_>>();
+            tokens.pop(); // the closing `>`
 
-        params
+            // Add our parameter with a comma
+            tokens.extend(quote! { , #proxy_ty_param #ty_bounds });
+
+            // Convert back into a `TokenStream`
+            tokens.into_iter().collect()
+        }
     };
 
 
     // The tokens after `for` in the impl header (the type the trait is
     // implemented for).
     let self_ty = match *proxy_type {
-        ProxyType::Ref      => quote! { & #proxy_lt_param #proxy_ty_param },
-        ProxyType::RefMut   => quote! { & #proxy_lt_param mut #proxy_ty_param },
+        ProxyType::Ref      => quote! { &#proxy_ty_param },
+        ProxyType::RefMut   => quote! { &mut #proxy_ty_param },
         ProxyType::Arc      => quote! { ::std::sync::Arc<#proxy_ty_param> },
         ProxyType::Rc       => quote! { ::std::rc::Rc<#proxy_ty_param> },
         ProxyType::Box      => quote! { ::std::boxed::Box<#proxy_ty_param> },
