@@ -28,7 +28,7 @@ pub(crate) fn gen_impls(
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
-        let header = header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param)?;
+        let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param)?;
         let items = gen_items(proxy_type, trait_def, &proxy_ty_param)?;
 
         tokens.append_all(quote! {
@@ -41,7 +41,7 @@ pub(crate) fn gen_impls(
 
 /// Generates the header of the impl of the given trait for the given proxy
 /// type.
-fn header(
+fn gen_header(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
@@ -113,6 +113,24 @@ fn header(
         ProxyType::FnOnce   => quote! { #proxy_ty_param },
     };
 
+    // If the trait has super traits, we need to add the super trait bound to
+    // our self type. This can only be done in the where clause, so we need to
+    // combine the existing where clauses with our new predicate in that case.
+    let where_clause = if !trait_def.supertraits.is_empty() {
+        let mut out = quote! { where };
+
+        if !trait_def.supertraits.is_empty() {
+            let supertraits = &trait_def.supertraits;
+            out.extend(quote! { #self_ty: #supertraits, });
+        }
+        if let Some(predicates) = where_clause.map(|c| &c.predicates) {
+            out.extend(predicates.into_token_stream());
+        }
+
+        out
+    } else {
+        where_clause.into_token_stream()
+    };
 
     // Combine everything
     Ok(quote! {
