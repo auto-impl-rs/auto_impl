@@ -1,22 +1,22 @@
 [package]
 name = "auto_impl"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
     "Ashley Mannix <ashleymannix@live.com.au>",
     "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>",
 ]
 license = "MIT/Apache-2.0"
 description = "Automatically implement traits for common smart pointers and closures"
-repository = "https://github.com/KodrAus/auto_impl"
+repository = "https://github.com/auto-impl-rs/auto_impl/"
 documentation = "https://docs.rs/auto_impl/"
-keywords = ["plugin"]
-categories = ["development-tools"]
+keywords = ["trait", "impl", "proc-macro", "closure"]
+categories = ["development-tools", "rust-patterns"]
 readme = "README.md"
 autotests = true
 edition = "2018"
 
 [badges]
-travis-ci = { repository = "KodrAus/auto_impl" }
+travis-ci = { repository = "auto-impl-rs/auto_impl" }
 
 
 [lib]
