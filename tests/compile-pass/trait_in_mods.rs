@@ -1,13 +1,21 @@
 // Make sure that everything compiles even without the prelude. This basically
 // forces us to generate full paths for types of the standard/core library.
+// 
+// Note that `no_implicit_prelude` attribute appears to interact strangely
+// with Rust's 2018 style modules and extern crates.
 #![no_implicit_prelude]
+
+extern crate std;
+extern crate auto_impl;
 
 
 mod outer {
-    use auto_impl::auto_impl;
-    use std::{
-        string::String,
-        result::Result,
+    use crate::{
+        auto_impl::auto_impl,
+        std::{
+            string::String,
+            result::Result,
+        }
     };
 
     #[auto_impl(Fn)]
@@ -29,10 +37,12 @@ mod outer {
     }
 
     mod inner {
-        use auto_impl::auto_impl;
-        use std::{
-            string::String,
-            result::Result,
+        use crate::{
+            auto_impl::auto_impl,
+            std::{
+                string::String,
+                result::Result,
+            }
         };
 
         #[auto_impl(Fn)]
