@@ -15,6 +15,9 @@ matrix:
     - name: "Build on beta"
       rust: beta
       script: cargo build --verbose
+    - name: "Build on stable"
+      rust: stable
+      script: cargo build --verbose
 
 env:
   global:
