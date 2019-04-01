@@ -36,6 +36,12 @@ impl ProxyType {
 /// and `Err(())` is returned.
 pub(crate) fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
     let mut out = Vec::new();
+
+    if args.is_empty() {
+        println!("Empty list");
+        return Err(());
+    }
+
     let mut iter = args.into_iter().peekable();
 
     // While there are still tokens left...
