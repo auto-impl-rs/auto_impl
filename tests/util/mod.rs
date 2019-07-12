@@ -46,6 +46,21 @@ pub(crate) fn get_dep_path() -> PathBuf {
 
     assert!(outputs.len() == 1);
 
+    // Run `cargo build` again to regenerate artifacts that might have been
+    // removed by the previous execution. See
+    // https://github.com/rust-lang/cargo/issues/6954
+    let mut command = Command::new(env!("CARGO"));
+    command.args(&["build"]);
+    command.stderr(Stdio::inherit());
+
+    #[cfg(feature = "nightly")]
+    command.arg("--features=nightly");
+
+    let status = command.status().expect("failed to run `cargo build`");
+    if !status.success() {
+        panic!("error running 'cargo build'");
+    }
+
     outputs.remove(0).into()
 }
 
