@@ -135,14 +135,42 @@ fn gen_header(
             quote! { + ?::std::marker::Sized }
         };
 
+        // Check if there are some `Self: Foo` bounds on methods. If so, we
+        // need to add those bounds to `T` as well. See issue #11 for more
+        // information, but in short: there is no better solution. Method where
+        // clauses with `Self: Foo` force us to add `T: Foo` to the impl
+        // header, as we otherwise cannot generate a valid impl block.
+        let additional_bounds = trait_def.items.iter()
+            // Only interested in methods
+            .filter_map(|item| if let TraitItem::Method(m) = item { Some(m) } else { None })
+            // We also ignore methods that we will not override. In the case of
+            // invalid attributes it is save to assume default behavior.
+            .filter(|m| !should_keep_default_for(m, proxy_type).unwrap_or(false))
+            // Exact all relevant bounds
+            .flat_map(|m| {
+                m.sig.decl.generics.where_clause.iter()
+                    .flat_map(|wc| &wc.predicates)
+                    .filter_map(|pred| {
+                        if let WherePredicate::Type(p) = pred { Some(p) } else { None }
+                    })
+                    .filter(|p| {
+                        // Only `Self:` bounds
+                        match &p.bounded_ty {
+                            Type::Path(p) => p.path.is_ident("Self"),
+                            _ => false,
+                        }
+                    })
+                    .flat_map(|p| &p.bounds)
+            });
+
         // Determine if our proxy type needs a lifetime parameter
         let (mut params, ty_bounds) = match proxy_type {
             ProxyType::Ref | ProxyType::RefMut => (
                 quote! { #proxy_lt_param, },
-                quote! { : #proxy_lt_param + #trait_path #relaxation }
+                quote! { : #proxy_lt_param + #trait_path #relaxation #(+ #additional_bounds)* }
             ),
             ProxyType::Box | ProxyType::Rc | ProxyType::Arc => {
-                (quote!{}, quote! { : #trait_path #relaxation })
+                (quote!{}, quote! { : #trait_path #relaxation #(+ #additional_bounds)* })
             }
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
                 let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
