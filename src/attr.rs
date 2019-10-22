@@ -46,11 +46,11 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     // Get the body of the attribute (which has to be a ground, because we
     // required the syntax `auto_impl(...)` and forbid stuff like
     // `auto_impl = ...`).
-    let tokens = attr.tts.clone().into_iter().collect::<Vec<_>>();
+    let tokens = attr.tokens.clone().into_iter().collect::<Vec<_>>();
     let body = match &*tokens {
         [TokenTree::Group(g)] => g.stream(),
         _ => {
-            return attr.tts.span()
+            return attr.tokens.span()
                 .err(format!("expected single group delimitted by`()`, found '{:?}'", tokens))
                 .emit_with_attr_note();
         }
@@ -67,7 +67,7 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
                 .emit_with_attr_note();
         }
         None => {
-            return attr.tts.span()
+            return attr.tokens.span()
                 .err("expected ident, found nothing")
                 .emit_with_attr_note();
         }

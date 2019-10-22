@@ -2,7 +2,7 @@ use crate::proc_macro::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    FnArg, Ident, ItemTrait, Lifetime, MethodSig, Pat, PatIdent, ReturnType, TraitBound,
+    FnArg, Ident, ItemTrait, Lifetime, Signature, Pat, PatIdent, ReturnType, TraitBound,
     TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type,
     TypeParamBound, WherePredicate,
 };
@@ -77,7 +77,7 @@ fn gen_header(
             .filter(|m| !should_keep_default_for(m, proxy_type).unwrap_or(false))
             .any(|m| {
                 // Check if there is a `Self: Sized` bound on the method.
-                let self_is_bounded_sized = m.sig.decl.generics.where_clause.iter()
+                let self_is_bounded_sized = m.sig.generics.where_clause.iter()
                     .flat_map(|wc| &wc.predicates)
                     .filter_map(|pred| {
                         if let WherePredicate::Type(p) = pred { Some(p) } else { None }
@@ -104,13 +104,13 @@ fn gen_header(
 
                 // Check if the first parameter is `self` by value. In that
                 // case, we might require `Self` to be `Sized`.
-                let self_value_param = match m.sig.decl.inputs.first().map(|p| p.into_value()) {
-                    Some(FnArg::SelfValue(_)) => true,
+                let self_value_param = match m.sig.inputs.first() {
+                    Some(FnArg::Receiver(receiver)) => receiver.reference.is_none(),
                     _ => false,
                 };
 
                 // Check if return type is `Self`
-                let self_value_return = match &m.sig.decl.output {
+                let self_value_return = match &m.sig.output {
                     ReturnType::Type(_, t) => {
                         if let Type::Path(p) = &**t {
                             p.path.is_ident("Self")
@@ -148,7 +148,7 @@ fn gen_header(
             .filter(|m| !should_keep_default_for(m, proxy_type).unwrap_or(false))
             // Exact all relevant bounds
             .flat_map(|m| {
-                m.sig.decl.generics.where_clause.iter()
+                m.sig.generics.where_clause.iter()
                     .flat_map(|wc| &wc.predicates)
                     .filter_map(|pred| {
                         if let WherePredicate::Type(p) = pred { Some(p) } else { None }
@@ -306,7 +306,7 @@ fn gen_fn_type_for_trait(
 
     // =======================================================================
     // Check if the trait can be implemented for the given proxy type
-    let self_type = SelfType::from_sig(&method.sig);
+    let self_type = SelfType::from_sig(sig);
     let err = match (self_type, proxy_type) {
         // The method needs to have a receiver
         (SelfType::None, _) => Some(("Fn-traits", "no", "")),
@@ -356,7 +356,7 @@ fn gen_fn_type_for_trait(
     };
 
     // The return type
-    let ret = &sig.decl.output;
+    let ret = &sig.output;
 
     // Now it get's a bit complicated. The types of the function signature
     // could contain "local" lifetimes, meaning that they are not declared in
@@ -374,31 +374,22 @@ fn gen_fn_type_for_trait(
     // omitted lifetimes in an `Fn()` type are automatically declared as HRTB.
     //
     // TODO: Implement this check for in-band lifetimes!
-    let local_lifetimes = sig.decl.generics.lifetimes();
+    let local_lifetimes = sig.generics.lifetimes();
 
     // The input types as comma separated list. We skip the first argument, as
     // this is the receiver argument.
     let mut arg_types = TokenStream2::new();
-    for arg in sig.decl.inputs.iter().skip(1) {
+    for arg in sig.inputs.iter().skip(1) {
         match arg {
-            FnArg::Captured(arg) => {
-                let ty = &arg.ty;
+            FnArg::Typed(pat) => {
+                let ty = &pat.ty;
                 arg_types.append_all(quote! { #ty , });
             }
 
-            // Honestly, I'm not sure what this is.
-            FnArg::Ignored(_) => {
-                panic!("unexpected ignored argument (auto_impl is confused)");
+            // We skipped the receiver already.
+            FnArg::Receiver(_) => {
+                panic!("receiver argument that's not the first argument (auto_impl is confused)");
             }
-
-            // This can't happen in today's Rust and it's unlikely to change in
-            // the near future.
-            FnArg::Inferred(_) => {
-                panic!("argument with inferred type in trait method");
-            }
-
-            // We skipped the receiver already
-            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {}
         }
     }
 
@@ -442,6 +433,14 @@ fn gen_items(
                 // notify the user with a nice error instead of panicking.
                 v.span()
                     .err("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
+                    .emit_with_attr_note()
+            }
+            _ => {
+                // `syn` enums are `non_exhaustive` to be future-proof. If a
+                // trait contains a kind of item we don't even know about, we
+                // emit an error.
+                item.span()
+                    .err("unknown trait item (auto-impl doesn't know how to handle it)")
                     .emit_with_attr_note()
             }
         }
@@ -547,7 +546,7 @@ fn gen_method_item(
     check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span())?;
 
     // Generate the list of argument used to call the method.
-    let args = get_arg_list(sig.decl.inputs.iter())?;
+    let args = get_arg_list(sig.inputs.iter())?;
 
     // Build the turbofish type parameters. We need to pass type parameters
     // explicitly as they cannot be inferred in all cases (e.g. something like
@@ -570,7 +569,7 @@ fn gen_method_item(
     // So we just specify type parameters. In the future, however, we need to
     // add support for const parameters. But those are not remotely stable yet,
     // so we can wait a bit still.
-    let generic_types = sig.decl.generics
+    let generic_types = sig.generics
         .type_params()
         .map(|param| {
             let name = &param.ident;
@@ -626,11 +625,17 @@ enum SelfType {
 }
 
 impl SelfType {
-    fn from_sig(sig: &MethodSig) -> Self {
-        match sig.decl.inputs.iter().next() {
-            Some(FnArg::SelfValue(_)) => SelfType::Value,
-            Some(FnArg::SelfRef(arg)) if arg.mutability.is_none() => SelfType::Ref,
-            Some(FnArg::SelfRef(arg)) if arg.mutability.is_some() => SelfType::Mut,
+    fn from_sig(sig: &Signature) -> Self {
+        match sig.inputs.iter().next() {
+            Some(FnArg::Receiver(r)) => {
+                if r.reference.is_none() {
+                    SelfType::Value
+                } else  if r.mutability.is_none() {
+                    SelfType::Ref
+                } else {
+                    SelfType::Mut
+                }
+            }
             _ => SelfType::None,
         }
     }
@@ -718,7 +723,7 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
 
     for arg in inputs {
         match arg {
-            FnArg::Captured(arg) => {
+            FnArg::Typed(arg) => {
                 // Make sure the argument pattern is a simple name. In
                 // principle, we could probably support patterns, but it's
                 // not that important now.
@@ -727,7 +732,8 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
                     mutability: None,
                     ident,
                     subpat: None,
-                }) = &arg.pat
+                    ..
+                }) = &*arg.pat
                 {
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
@@ -741,20 +747,9 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
                 }
             }
 
-            // Honestly, I'm not sure what this is.
-            FnArg::Ignored(_) => {
-                panic!("ignored argument encountered (auto_impl is confused)");
-            }
-
-            // This can't happen in today's Rust and it's unlikely to change in
-            // the near future.
-            FnArg::Inferred(_) => {
-                panic!("argument with inferred type in trait method");
-            }
-
             // There is only one such argument. We handle it elsewhere and
             // can ignore it here.
-            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {}
+            FnArg::Receiver(_) => {}
         }
     }
 
