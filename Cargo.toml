@@ -32,7 +32,7 @@ syn = { version = "1.0", features = ["full", "visit", "visit-mut"] }
 
 [dev-dependencies]
 build-plan = "0.1.1"
-libtest-mimic = "0.1.0"
+libtest-mimic = "0.2.0"
 
 [[test]]
 name = "compile-fail"
