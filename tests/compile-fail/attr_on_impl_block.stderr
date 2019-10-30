@@ -1,0 +1,9 @@
+error: couldn't parse trait item
+
+note: expected `trait`
+
+note: the #[auto_impl] attribute can only be applied to traits!
+ --> $DIR/attr_on_impl_block.rs:7:1
+  |
+7 | impl Foo for usize {}
+  | ^^^^

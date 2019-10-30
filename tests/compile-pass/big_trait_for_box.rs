@@ -14,3 +14,6 @@ trait BoxTrait1<'a, T: for<'b> Into<&'b str>> {
     fn execute4(arg1: String) -> Result<i32, String>;
     fn execute5() -> String;
 }
+
+
+fn main() {}

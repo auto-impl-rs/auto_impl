@@ -11,3 +11,6 @@ trait RefTrait1<'a, T: for<'b> Into<&'b str>> {
     fn execute1<'b>(&'a self, arg1: &'b T) -> Result<Self::Type1, String>;
     fn execute2(&self) -> Self::Type2;
 }
+
+
+fn main() {}

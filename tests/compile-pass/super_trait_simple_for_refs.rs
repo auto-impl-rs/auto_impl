@@ -4,3 +4,6 @@ trait Supi {}
 
 #[auto_impl(Box, &)]
 trait Foo: Supi {}
+
+
+fn main() {}

@@ -16,3 +16,6 @@ where
 
     fn bar(&self);
 }
+
+
+fn main() {}

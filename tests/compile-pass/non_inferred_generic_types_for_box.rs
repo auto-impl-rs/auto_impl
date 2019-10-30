@@ -7,3 +7,6 @@ trait Foo {
     fn baz<V>(&mut self);
     fn qux<W>(self);
 }
+
+
+fn main() {}

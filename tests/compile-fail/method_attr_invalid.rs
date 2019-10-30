@@ -6,3 +6,6 @@ trait Foo {
     #[auto_impl(ferris_for_life)]
     fn a(&self);
 }
+
+
+fn main() {}

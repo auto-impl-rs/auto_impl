@@ -8,3 +8,6 @@ trait Foo {
     #[auto_impl(keep_default_for(&))]
     fn provided(&self) where Self: Clone {}
 }
+
+
+fn main() {}

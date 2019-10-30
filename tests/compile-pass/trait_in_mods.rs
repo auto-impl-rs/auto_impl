@@ -1,6 +1,6 @@
 // Make sure that everything compiles even without the prelude. This basically
 // forces us to generate full paths for types of the standard/core library.
-// 
+//
 // Note that `no_implicit_prelude` attribute appears to interact strangely
 // with Rust's 2018 style modules and extern crates.
 #![no_implicit_prelude]
@@ -64,3 +64,6 @@ mod outer {
         }
     }
 }
+
+
+fn main() {}

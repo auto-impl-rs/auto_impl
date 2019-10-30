@@ -6,3 +6,6 @@ pub trait OrderStoreFilter {
     where
         F: Fn(&str) -> bool;
 }
+
+
+fn main() {}

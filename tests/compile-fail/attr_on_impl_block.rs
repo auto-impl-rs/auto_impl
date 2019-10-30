@@ -5,3 +5,5 @@ trait Foo {}
 
 #[auto_impl(&, &mut)]
 impl Foo for usize {}
+
+fn main() {}

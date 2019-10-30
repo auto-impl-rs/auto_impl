@@ -7,3 +7,5 @@ enum Foo {
     Name(String),
     Rgb(u8, u8, u8),
 }
+
+fn main() {}

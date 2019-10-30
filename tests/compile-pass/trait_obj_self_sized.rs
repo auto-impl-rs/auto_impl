@@ -15,3 +15,6 @@ trait Bar where Self: Sized {
 trait Baz: Sized where Self: Sized {
     fn foo(&self);
 }
+
+
+fn main() {}

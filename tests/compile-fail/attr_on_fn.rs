@@ -5,3 +5,5 @@ use auto_impl::auto_impl;
 fn foo(s: String) -> u32 {
     3
 }
+
+fn main() {}

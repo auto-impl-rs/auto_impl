@@ -22,7 +22,7 @@ impl Trait for Foo {
 }
 
 impl fmt::Display for Foo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
         unimplemented!()
     }
 }

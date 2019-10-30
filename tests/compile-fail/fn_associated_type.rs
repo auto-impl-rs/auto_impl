@@ -7,3 +7,6 @@ trait Foo {
 
     fn a(&self);
 }
+
+
+fn main() {}

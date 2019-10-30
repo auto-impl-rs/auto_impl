@@ -24,3 +24,6 @@ impl<T> AllExt for T {
 trait Foo {
     fn foo(&self, _x: bool);
 }
+
+
+fn main() {}
