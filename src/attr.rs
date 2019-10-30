@@ -3,7 +3,7 @@
 
 use proc_macro2::{Delimiter, TokenTree};
 use syn::{
-    Attribute, TraitItemMethod,
+    Attribute, TraitItem,
     visit_mut::{VisitMut, visit_item_trait_mut},
 };
 
@@ -19,8 +19,24 @@ use crate::{
 pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
     struct AttrRemover;
     impl VisitMut for AttrRemover {
-        fn visit_trait_item_method_mut(&mut self, m: &mut TraitItemMethod) {
-            m.attrs.retain(|a| !is_our_attr(a));
+        fn visit_trait_item_mut(&mut self, item: &mut TraitItem) {
+            let item_span = item.span();
+            let (attrs, is_method) = match item {
+                TraitItem::Method(m) => (&mut m.attrs, true),
+                TraitItem::Const(c) => (&mut c.attrs, false),
+                TraitItem::Type(t) => (&mut t.attrs, false),
+                TraitItem::Macro(m) => (&mut m.attrs, false),
+                _ => panic!("encountered unexpected `TraitItem`, cannot handle that, sorry!"),
+            };
+
+            // Make sure non-methods do not have our attributes.
+            if !is_method && attrs.iter().any(|a| is_our_attr(a)) {
+                item_span
+                    .err("`auto_impl` attributes are only allowed on methods")
+                    .emit();
+            }
+
+            attrs.retain(|a| !is_our_attr(a));
         }
     }
 
