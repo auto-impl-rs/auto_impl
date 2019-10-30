@@ -150,7 +150,14 @@ thread_local! {
 /// On stable, we just copy the error token streams from the global variable.
 #[cfg(not(feature = "nightly"))]
 pub(crate) fn error_tokens() -> TokenStream {
-    ERROR_TOKENS.with(|toks| toks.borrow().iter().cloned().collect())
+    ERROR_TOKENS.with(|toks| {
+        // We are clearing the vector here (and dropping all its elements) so
+        // that it does not need to do that ... at some other point. It's
+        // unclear when exactly the thread local variable is dropped. But
+        // currently, if the vector still has elements when our macro is done,
+        // we cause a fatal runtime error inside `rustc`. That's bad.
+        toks.borrow_mut().drain(..).collect()
+    })
 }
 
 /// On nightly, we don't use and don't have a strange global variable. Instead,
