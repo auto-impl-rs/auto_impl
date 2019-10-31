@@ -1,4 +1,12 @@
 language: rust
+rust:
+  - nightly
+  - beta
+  - stable
+
+script:
+  - cargo build --verbose || travis_terminate 1
+  - cargo test --verbose || travis_terminate 1
 
 matrix:
   include:
@@ -7,17 +15,6 @@ matrix:
       script:
         - cargo build --verbose --features=nightly || travis_terminate 1
         - cargo test --verbose --features=nightly || travis_terminate 1
-    - name: "Build & test on nightly WITHOUT nightly feature"
-      rust: nightly
-      script:
-        - cargo build --verbose || travis_terminate 1
-        - cargo test --verbose || travis_terminate 1
-    - name: "Build on beta"
-      rust: beta
-      script: cargo build --verbose
-    - name: "Build on stable"
-      rust: stable
-      script: cargo build --verbose
 
 env:
   global:
