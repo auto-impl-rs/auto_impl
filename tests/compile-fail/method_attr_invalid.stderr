@@ -1,6 +1,4 @@
 error: expected arguments for 'ferris_for_life' in parenthesis `()`, found nothing
-
-note: auto-impl requested here
  --> $DIR/method_attr_invalid.rs:6:17
   |
 6 |     #[auto_impl(ferris_for_life)]

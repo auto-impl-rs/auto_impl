@@ -1,6 +1,7 @@
-error: the trait `Foo` cannot be auto-implemented for mutable references, because this method has a `self` receiver (only `&self`, `&mut self` and no receiver are allowed)
+error: the trait `Foo` cannot be auto-implemented for mutable references, because this method has a `self` receiver
 
-note: auto-impl requested here
+  = note: only `&self`, `&mut self` and no receiver are allowed
+
  --> $DIR/value_self_for_mutable_ref.rs:6:5
   |
 6 |     fn foo(self);
