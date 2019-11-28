@@ -6,3 +6,6 @@ trait Foo {
     #[auto_impl(keep_default_for(&))]
     type Foo;
 }
+
+
+fn main() {}

@@ -16,3 +16,6 @@ fn bar() {
     // Fn
     foo(|| {});
 }
+
+
+fn main() {}

@@ -22,3 +22,6 @@ fn foo() {
 
     println!("yooo");
 }
+
+
+fn main() {}

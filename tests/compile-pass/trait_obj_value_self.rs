@@ -5,3 +5,6 @@ use auto_impl::auto_impl;
 trait Trait {
     fn foo(self);
 }
+
+
+fn main() {}

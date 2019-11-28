@@ -5,3 +5,6 @@ trait Foo {
     fn foo<T>();
     fn bar<U>(&self);
 }
+
+
+fn main() {}

@@ -17,3 +17,6 @@ trait Big<'a, T: for<'b> Into<&'b str>> {
     where
         T: std::ops::Deref<Target = Self::Type1>;
 }
+
+
+fn main() {}

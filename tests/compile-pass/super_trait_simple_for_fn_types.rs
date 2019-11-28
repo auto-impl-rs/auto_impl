@@ -6,3 +6,6 @@ trait Supi {}
 trait Foo: Supi {
     fn foo(&self, x: u32) -> String;
 }
+
+
+fn main() {}

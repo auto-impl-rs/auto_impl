@@ -6,3 +6,6 @@ trait Foo {
     fn a(&self);
     fn b(&self);
 }
+
+
+fn main() {}

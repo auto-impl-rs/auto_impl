@@ -10,3 +10,6 @@ trait FnTrait2<'a, T> {
         arg3: &'static str,
     ) -> Result<T, String>;
 }
+
+
+fn main() {}

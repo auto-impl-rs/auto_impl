@@ -273,16 +273,20 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             // `#[auto_impl(...)]` attributes on all methods.
             attr::remove_our_attrs(&mut trait_def);
 
-            match generated {
+            let error_tokens = diag::error_tokens();
+
+            match &generated {
                 // No errors at all => output the trait and our generated impls
-                Ok(generated) => quote! { #trait_def #generated }.into(),
-                Err(_) => {
+                Ok(generated) if error_tokens.is_empty() => {
+                    (quote! { #trait_def #generated }).into()
+                }
+                _ => {
                     // We combine the token stream of the modified trait
                     // definition with the generated errors (which are tokens
                     // on stable due to the `compile_error!` hack).
                     vec![
                         TokenStream::from(trait_def.into_token_stream()),
-                        diag::error_tokens()
+                        error_tokens,
                     ].into_iter().collect()
                 }
             }

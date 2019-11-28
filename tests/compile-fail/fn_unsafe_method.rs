@@ -5,3 +5,6 @@ use auto_impl::auto_impl;
 trait Foo {
     unsafe fn a(&self);
 }
+
+
+fn main() {}

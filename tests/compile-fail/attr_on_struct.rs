@@ -6,3 +6,6 @@ struct Foo {
     x: usize,
     bar: String,
 }
+
+
+fn main() {}
