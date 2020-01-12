@@ -64,6 +64,7 @@ pub(crate) fn parse_types(args: TokenStream) -> Vec<ProxyType> {
 /// Parses one `ProxyType` from the given token iterator. The iterator must not
 /// be empty!
 fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()> {
+    #[rustfmt::skip]
     const NOTE_TEXT: &str = "\
         attribute format should be `#[auto_impl(<types>)]` where `<types>` is \
         a comma-separated list of types. Allowed values for types: `&`, \
@@ -82,7 +83,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             );
 
             return Err(());
-        }
+        },
 
         TokenTree::Literal(lit) => {
             emit_error!(
@@ -92,7 +93,7 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             );
 
             return Err(());
-        }
+        },
 
         TokenTree::Punct(punct) => {
             // Only '&' are allowed. Everything else leads to an error.
@@ -119,26 +120,24 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             } else {
                 ProxyType::Ref
             }
-        }
+        },
 
-        TokenTree::Ident(ident) => {
-            match &*ident.to_string() {
-                "Box" => ProxyType::Box,
-                "Rc" => ProxyType::Rc,
-                "Arc" => ProxyType::Arc,
-                "Fn" => ProxyType::Fn,
-                "FnMut" => ProxyType::FnMut,
-                "FnOnce" => ProxyType::FnOnce,
-                _ => {
-                    emit_error!(
-                        ident.span(),
-                        "unexpected '{}', {}", ident, EXPECTED_TEXT;
-                        note = NOTE_TEXT;
-                    );
-                    return Err(());
-                }
-            }
-        }
+        TokenTree::Ident(ident) => match &*ident.to_string() {
+            "Box" => ProxyType::Box,
+            "Rc" => ProxyType::Rc,
+            "Arc" => ProxyType::Arc,
+            "Fn" => ProxyType::Fn,
+            "FnMut" => ProxyType::FnMut,
+            "FnOnce" => ProxyType::FnOnce,
+            _ => {
+                emit_error!(
+                    ident.span(),
+                    "unexpected '{}', {}", ident, EXPECTED_TEXT;
+                    note = NOTE_TEXT;
+                );
+                return Err(());
+            },
+        },
     };
 
     Ok(ty)

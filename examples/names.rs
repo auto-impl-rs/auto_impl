@@ -29,6 +29,7 @@
 
 // This code is really ugly on purpose...
 #![allow(non_snake_case, dead_code, unused_variables)]
+#![cfg_attr(rustfmt, rustfmt::skip)]
 
 use auto_impl::auto_impl;
 

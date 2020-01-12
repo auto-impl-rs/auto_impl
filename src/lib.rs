@@ -221,7 +221,6 @@
 //!   Note that `auto_impl` already (even without nightly feature) takes care
 //!   that idents never collide, if possible. But `def_site` hygiene is still
 //!   technically the more correct solution.
-//!
 
 #![cfg_attr(
     feature = "nightly",
@@ -233,8 +232,8 @@ extern crate proc_macro;
 #[macro_use]
 extern crate quote;
 
-use proc_macro2::TokenStream as TokenStream2;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{abort_call_site, proc_macro_error, set_dummy};
 use quote::ToTokens;
 
@@ -272,19 +271,17 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             set_dummy(trait_def.to_token_stream());
 
             quote!(#trait_def #generated).into()
-        }
+        },
 
         // If the token stream could not be parsed as trait, this most
         // likely means that the attribute was applied to a non-trait item.
         // Even if the trait definition was syntactically incorrect, the
         // compiler usually does some kind of error recovery to proceed. We
         // get the recovered tokens.
-        Err(e) => {
-            abort_call_site!(
-                "couldn't parse trait item";
-                note = e;
-                note = "the #[auto_impl] attribute can only be applied to traits!";
-            )
-        }
+        Err(e) => abort_call_site!(
+            "couldn't parse trait item";
+            note = e;
+            note = "the #[auto_impl] attribute can only be applied to traits!";
+        ),
     }
 }

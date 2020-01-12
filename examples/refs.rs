@@ -33,8 +33,10 @@ trait DisplayCollection {
 }
 
 impl<T: Display> DisplayCollection for Vec<T> {
-    const LEN: Option<usize> = None;
     type Out = T;
+
+    const LEN: Option<usize> = None;
+
     fn display_at(&self, index: usize) -> Option<&Self::Out> {
         self.get(index)
     }
@@ -47,7 +49,7 @@ fn show_first(c: impl DisplayCollection) {
     }
 }
 
-
+#[rustfmt::skip]
 fn main() {
     let v = vec!["dog", "cat"];
     let boxed = Box::new(v.clone());
