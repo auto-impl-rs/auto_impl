@@ -354,7 +354,7 @@ fn gen_fn_type_for_trait(
     // The return type
     let ret = &sig.output;
 
-    // Now it get's a bit complicated. The types of the function signature
+    // Now it gets a bit complicated. The types of the function signature
     // could contain "local" lifetimes, meaning that they are not declared in
     // the trait definition (or are `'static`). We need to extract all local
     // lifetimes to declare them with HRTB (e.g. `for<'a>`).
@@ -598,7 +598,7 @@ fn gen_method_item(
 
         // No receiver
         SelfType::None => {
-            // The proxy type is a reference, smartpointer or Box.
+            // The proxy type is a reference, smart pointer or Box.
             quote! { #proxy_ty_param::#fn_name #generic_types(#args) }
         }
 

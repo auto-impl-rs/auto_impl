@@ -48,10 +48,7 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
 /// Checks if the given attribute is "our" attribute. That means that it's path
 /// is `auto_impl`.
 pub(crate) fn is_our_attr(attr: &Attribute) -> bool {
-    attr.path.segments.len() == 1
-        && attr.path.segments.iter().next().map(|seg| {
-            seg.ident == "auto_impl" && seg.arguments.is_empty()
-        }).unwrap()
+    attr.path.is_ident("auto_impl")
 }
 
 /// Tries to parse the given attribute as one of our own `auto_impl`
@@ -118,18 +115,15 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     };
 
     // Finally match over the name of the attribute.
-    let out = match () {
-        () if name == "keep_default_for" => {
-            let proxy_types = parse_types(params.into());
-            OurAttr::KeepDefaultFor(proxy_types)
-        }
-        _ => {
-            emit_error!(
-                name.span(), "invalid attribute '{}'", name;
-                note = "only `keep_default_for` is supported";
-            );
-            return Err(());
-        }
+    let out = if name == "keep_default_for" {
+        let proxy_types = parse_types(params.into());
+        OurAttr::KeepDefaultFor(proxy_types)
+    } else {
+        emit_error!(
+            name.span(), "invalid attribute '{}'", name;
+            note = "only `keep_default_for` is supported";
+        );
+        return Err(());
     };
 
     Ok(out)

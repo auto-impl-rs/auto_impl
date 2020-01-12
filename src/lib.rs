@@ -132,7 +132,7 @@
 //!
 //! As you can easily see, this won't work because we can't call `bar` through
 //! an immutable reference. There are similar restrictions for many other
-//! smartpointers and references.
+//! smart pointers and references.
 //!
 //! In the following table you can see which methods can be implemented for
 //! which proxy type. If a trait contains at least one method that cannot be
@@ -146,9 +146,9 @@
 //! | `self` receiver               | ✗   | ✗      | ✔     | ✗    | ✗     |
 //! | no `self` receiver            | ✔   | ✔      | ✔     | ✔    | ✔     |
 //!
-//! References and smartpointers have **no restriction in regard to associated
+//! References and smart pointers have **no restriction in regard to associated
 //! types and associated consts**! Meaning: traits with associated types/consts
-//! can always be implemented for references and smartpointers as long as the
+//! can always be implemented for references and smart pointers as long as the
 //! methods of that trait can be implemented.
 //!
 //!
