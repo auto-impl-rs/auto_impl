@@ -4,8 +4,6 @@
 //! ```
 //! cargo build --example error_messages
 //! ```
-//!
-//! If you want to see nicer error messages, add `--features=nightly`.
 #![allow(unused_imports, dead_code)]
 
 use auto_impl::auto_impl;

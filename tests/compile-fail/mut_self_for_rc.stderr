@@ -1,6 +1,7 @@
-error: the trait `Foo` cannot be auto-implemented for Rc-smartpointer, because this method has a `&mut self` receiver (only `&self` and no receiver are allowed)
+error: the trait `Foo` cannot be auto-implemented for Rc, because this method has a `&mut self` receiver
 
-note: auto-impl requested here
+  = note: only `&self` and no receiver are allowed
+
  --> $DIR/mut_self_for_rc.rs:6:5
   |
 6 |     fn foo(&mut self);

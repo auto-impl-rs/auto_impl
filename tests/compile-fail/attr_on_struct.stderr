@@ -1,9 +1,9 @@
 error: couldn't parse trait item
 
-note: expected `trait`
+  = note: expected `trait`
+  = note: the #[auto_impl] attribute can only be applied to traits!
 
-note: the #[auto_impl] attribute can only be applied to traits!
- --> $DIR/attr_on_struct.rs:5:1
+ --> $DIR/attr_on_struct.rs:4:1
   |
-5 | struct Foo {
-  | ^^^^^^
+4 | #[auto_impl(&, &mut)]
+  | ^^^^^^^^^^^^^^^^^^^^^
