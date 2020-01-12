@@ -23,10 +23,10 @@ travis-ci = { repository = "auto-impl-rs/auto_impl" }
 proc-macro = true
 
 [features]
-nightly = ["proc-macro2/nightly"]
+nightly = []
 
 [dependencies]
-proc-macro2 = { version = "1.0" }
+proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "1.0", features = ["full", "visit", "visit-mut"] }
 proc-macro-error = "0.4.4"
