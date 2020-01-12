@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use proc_macro2::Span as Span2;
 use syn::{
-    Ident, ItemTrait, Lifetime, Block,
-    visit::{Visit, visit_item_trait},
+    visit::{visit_item_trait, Visit},
+    Block, Ident, ItemTrait, Lifetime,
 };
 
 

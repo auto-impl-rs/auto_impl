@@ -33,8 +33,10 @@ trait DisplayCollection {
 }
 
 impl<T: Display> DisplayCollection for Vec<T> {
-    const LEN: Option<usize> = None;
     type Out = T;
+
+    const LEN: Option<usize> = None;
+
     fn display_at(&self, index: usize) -> Option<&Self::Out> {
         self.get(index)
     }
