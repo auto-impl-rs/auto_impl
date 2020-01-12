@@ -202,6 +202,7 @@ fn gen_header(
 
     // The tokens after `for` in the impl header (the type the trait is
     // implemented for).
+    #[rustfmt::skip]
     let self_ty = match *proxy_type {
         ProxyType::Ref      => quote! { & #proxy_lt_param #proxy_ty_param },
         ProxyType::RefMut   => quote! { & #proxy_lt_param mut #proxy_ty_param },

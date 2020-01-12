@@ -1,0 +1,17 @@
+unstable_features = true
+
+blank_lines_lower_bound = 0
+blank_lines_upper_bound = 3
+enum_discrim_align_threshold = 30
+
+format_macro_matchers = true
+format_strings = false
+imports_indent = "Block"
+match_block_trailing_comma = true
+merge_imports = true
+newline_style = "Unix"
+normalize_comments = true
+overflow_delimited_expr = true
+reorder_impl_items = true
+# struct_field_align_threshold = 30
+wrap_comments = false

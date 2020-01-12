@@ -47,7 +47,7 @@ fn show_first(c: impl DisplayCollection) {
     }
 }
 
-
+#[rustfmt::skip]
 fn main() {
     let v = vec!["dog", "cat"];
     let boxed = Box::new(v.clone());

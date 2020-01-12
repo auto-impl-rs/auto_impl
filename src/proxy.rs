@@ -64,6 +64,7 @@ pub(crate) fn parse_types(args: TokenStream) -> Vec<ProxyType> {
 /// Parses one `ProxyType` from the given token iterator. The iterator must not
 /// be empty!
 fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()> {
+    #[rustfmt::skip]
     const NOTE_TEXT: &str = "\
         attribute format should be `#[auto_impl(<types>)]` where `<types>` is \
         a comma-separated list of types. Allowed values for types: `&`, \
