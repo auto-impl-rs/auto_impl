@@ -1,7 +1,8 @@
-use crate::proc_macro::Span;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use quote::{ToTokens, TokenStreamExt};
+use proc_macro_error::{emit_error, abort};
 use syn::{
+    spanned::Spanned,
     FnArg, Ident, ItemTrait, Lifetime, Signature, Pat, PatIdent, ReturnType, TraitBound,
     TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type,
     TypeParamBound, WherePredicate,
@@ -10,9 +11,7 @@ use syn::{
 use crate::{
     analyze::find_suitable_param_names,
     attr::{is_our_attr, parse_our_attr, OurAttr},
-    diag::{DiagnosticExt, SpanExt},
     proxy::ProxyType,
-    spanned::Spanned,
 };
 
 
@@ -22,22 +21,22 @@ use crate::{
 pub(crate) fn gen_impls(
     proxy_types: &[ProxyType],
     trait_def: &syn::ItemTrait,
-) -> Result<TokenStream2, ()> {
+) -> TokenStream2 {
     let mut tokens = TokenStream2::new();
 
     let (proxy_ty_param, proxy_lt_param) = find_suitable_param_names(trait_def);
 
     // One impl for each proxy type
     for proxy_type in proxy_types {
-        let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param)?;
-        let items = gen_items(proxy_type, trait_def, &proxy_ty_param)?;
+        let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param);
+        let items = gen_items(proxy_type, trait_def, &proxy_ty_param);
 
         tokens.append_all(quote! {
             #header { #( #items )* }
         });
     }
 
-    Ok(tokens)
+    tokens
 }
 
 /// Generates the header of the impl of the given trait for the given proxy
@@ -47,7 +46,7 @@ fn gen_header(
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
     proxy_lt_param: &Lifetime,
-) -> Result<TokenStream2, ()> {
+) -> TokenStream2 {
     // Generate generics for impl positions from trait generics.
     let (impl_generics, trait_generics, where_clause) = trait_def.generics.split_for_impl();
 
@@ -74,7 +73,7 @@ fn gen_header(
             .filter_map(|item| if let TraitItem::Method(m) = item { Some(m) } else { None })
             // We also ignore methods that we will not override. In the case of
             // invalid attributes it is save to assume default behavior.
-            .filter(|m| !should_keep_default_for(m, proxy_type).unwrap_or(false))
+            .filter(|m| !should_keep_default_for(m, proxy_type))
             .any(|m| {
                 // Check if there is a `Self: Sized` bound on the method.
                 let self_is_bounded_sized = m.sig.generics.where_clause.iter()
@@ -145,7 +144,7 @@ fn gen_header(
             .filter_map(|item| if let TraitItem::Method(m) = item { Some(m) } else { None })
             // We also ignore methods that we will not override. In the case of
             // invalid attributes it is save to assume default behavior.
-            .filter(|m| !should_keep_default_for(m, proxy_type).unwrap_or(false))
+            .filter(|m| !should_keep_default_for(m, proxy_type))
             // Exact all relevant bounds
             .flat_map(|m| {
                 m.sig.generics.where_clause.iter()
@@ -173,7 +172,7 @@ fn gen_header(
                 (quote!{}, quote! { : #trait_path #relaxation #(+ #additional_bounds)* })
             }
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
-                let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def)?;
+                let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def);
                 (quote!{}, quote! { : #fn_bound })
             }
         };
@@ -234,20 +233,20 @@ fn gen_header(
     };
 
     // Combine everything
-    Ok(quote! {
+    quote! {
         impl<#impl_generics> #trait_path for #self_ty #where_clause
-    })
+    }
 }
 
 /// Generates the Fn-trait type (e.g. `FnMut(u32) -> String`) for the given
 /// trait and proxy type (the latter has to be `Fn`, `FnMut` or `FnOnce`!)
 ///
 /// If the trait is unsuitable to be implemented for the given proxy type, an
-/// error is emitted and `Err(())` is returned.
+/// error is emitted.
 fn gen_fn_type_for_trait(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
-) -> Result<TokenStream2, ()> {
+) -> TokenStream2 {
     // Only traits with exactly one method can be implemented for Fn-traits.
     // Associated types and consts are also not allowed.
     let method = trait_def.items.get(0).and_then(|item| {
@@ -260,47 +259,43 @@ fn gen_fn_type_for_trait(
 
     // If this requirement is not satisfied, we emit an error.
     if method.is_none() || trait_def.items.len() > 1 {
-        return trait_def.span()
-            .err(
-                "this trait cannot be auto-implemented for Fn-traits (only traits with exactly \
-                 one method and no other items are allowed)"
-            )
-            .emit_with_attr_note();
+        emit_error!(
+            trait_def.span(),
+            "this trait cannot be auto-implemented for Fn-traits (only traits with exactly \
+                one method and no other items are allowed)",
+        );
+        return TokenStream2::new();
     }
 
     // We checked for `None` above
     let method = method.unwrap();
     let sig = &method.sig;
 
-
     // Check for forbidden modifier of the method
     if let Some(const_token) = sig.constness {
-        return const_token.span()
-            .err(format!(
-                "the trait '{}' cannot be auto-implemented for Fn-traits: const methods are not \
-                    allowed",
-                trait_def.ident,
-            ))
-            .emit_with_attr_note();
+        emit_error!(
+            const_token.span(),
+            "the trait '{}' cannot be auto-implemented for Fn-traits: const methods are not \
+                allowed",
+            trait_def.ident,
+        );
     }
 
     if let Some(unsafe_token) = &sig.unsafety {
-        return unsafe_token.span()
-            .err(format!(
-                "the trait '{}' cannot be auto-implemented for Fn-traits: unsafe methods are not \
-                    allowed",
-                trait_def.ident,
-            ))
-            .emit_with_attr_note();
+        emit_error!(
+            unsafe_token.span(),
+            "the trait '{}' cannot be auto-implemented for Fn-traits: unsafe methods are not \
+                allowed",
+            trait_def.ident,
+        );
     }
 
     if let Some(abi_token) = &sig.abi {
-        return abi_token.span()
-            .err(format!(
-                "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
-                trait_def.ident,
-            ))
-            .emit_with_attr_note();
+        emit_error!(
+            abi_token.span(),
+            "the trait '{}' cannot be implemented for Fn-traits: custom ABIs are not allowed",
+            trait_def.ident,
+        );
     }
 
 
@@ -332,7 +327,8 @@ fn gen_fn_type_for_trait(
     };
 
     if let Some((fn_traits, receiver, allowed)) = err {
-        let msg = format!(
+        emit_error!(
+            method.sig.span(),
             "the trait '{}' cannot be auto-implemented for {}, because this method has \
                 {} receiver{}",
             trait_def.ident,
@@ -341,7 +337,7 @@ fn gen_fn_type_for_trait(
             allowed,
         );
 
-        return method.sig.span().err(msg).emit_with_attr_note();
+        return TokenStream2::new();
     }
 
     // =======================================================================
@@ -387,16 +383,19 @@ fn gen_fn_type_for_trait(
             }
 
             // We skipped the receiver already.
-            FnArg::Receiver(_) => {
-                panic!("receiver argument that's not the first argument (auto_impl is confused)");
+            FnArg::Receiver(r) => {
+                abort!(
+                    r.span(),
+                    "receiver argument that's not the first argument (auto_impl is confused)",
+                );
             }
         }
     }
 
 
-    Ok(quote! {
+    quote! {
         for< #(#local_lifetimes),* > #fn_name (#arg_types) #ret
-    })
+    }
 }
 
 /// Generates the implementation of all items of the given trait. These
@@ -405,43 +404,47 @@ fn gen_items(
     proxy_type: &ProxyType,
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
-) -> Result<Vec<TokenStream2>, ()> {
-    trait_def.items.iter().map(|item| {
+) -> Vec<TokenStream2> {
+    trait_def.items.iter().filter_map(|item| {
         match item {
             TraitItem::Const(c) => {
-                gen_const_item(proxy_type, c, trait_def, proxy_ty_param)
+                gen_const_item(proxy_type, c, trait_def, proxy_ty_param).ok()
             }
             TraitItem::Method(method) => {
-                gen_method_item(proxy_type, method, trait_def, proxy_ty_param)
+                gen_method_item(proxy_type, method, trait_def, proxy_ty_param).ok()
             }
             TraitItem::Type(ty) => {
-                gen_type_item(proxy_type, ty, trait_def, proxy_ty_param)
+                gen_type_item(proxy_type, ty, trait_def, proxy_ty_param).ok()
             }
             TraitItem::Macro(mac) => {
                 // We cannot resolve the macro invocation and thus cannot know
                 // if it adds additional items to the trait. Thus, we have to
                 // give up.
-                mac.span()
-                    .err(
-                        "traits with macro invocations in their bodies are not \
-                         supported by auto_impl"
-                    )
-                    .emit_with_attr_note()
-            },
+                emit_error!(
+                    mac.span(),
+                    "traits with macro invocations in their bodies are not \
+                        supported by auto_impl",
+                );
+                None
+            }
             TraitItem::Verbatim(v) => {
                 // I don't quite know when this happens, but it's better to
                 // notify the user with a nice error instead of panicking.
-                v.span()
-                    .err("unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)")
-                    .emit_with_attr_note()
+                emit_error!(
+                    v.span(),
+                    "unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)",
+                );
+                None
             }
             _ => {
                 // `syn` enums are `non_exhaustive` to be future-proof. If a
                 // trait contains a kind of item we don't even know about, we
                 // emit an error.
-                item.span()
-                    .err("unknown trait item (auto-impl doesn't know how to handle it)")
-                    .emit_with_attr_note()
+                emit_error!(
+                    item.span(),
+                    "unknown trait item (auto-impl doesn't know how to handle it)",
+                );
+                None
             }
         }
     }).collect()
@@ -460,14 +463,15 @@ fn gen_const_item(
 ) -> Result<TokenStream2, ()> {
     // A trait with associated consts cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
-        return item.span()
-            .err(format!(
-                "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
-                    associated consts (only traits with a single method can be implemented \
-                    for Fn-traits)",
-                trait_def.ident,
-            ))
-            .emit_with_attr_note();
+        emit_error!(
+            item.span(),
+            "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
+                associated consts",
+            trait_def.ident;
+
+            note = "only traits with a single method can be implemented for Fn-traits";
+        );
+        return Err(());
     }
 
     // We simply use the associated const from our type parameter.
@@ -492,14 +496,15 @@ fn gen_type_item(
 ) -> Result<TokenStream2, ()> {
     // A trait with associated types cannot be implemented for Fn* types.
     if proxy_type.is_fn() {
-        return item.span()
-            .err(format!(
-                "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
-                    associated types (only traits with a single method can be implemented \
-                    for Fn-traits)",
-                trait_def.ident,
-            ))
-            .emit_with_attr_note();
+        emit_error!(
+            item.span(),
+            "the trait `{}` cannot be auto-implemented for Fn-traits, because it has \
+                associated types",
+                trait_def.ident;
+
+            note = "only traits with a single method can be implemented for Fn-traits";
+        );
+        return Err(());
     }
 
     // We simply use the associated type from our type parameter.
@@ -524,17 +529,17 @@ fn gen_method_item(
 ) -> Result<TokenStream2, ()> {
     // If this method has a `#[auto_impl(keep_default_for(...))]` attribute for
     // the given proxy type, we don't generate anything for this impl block.
-    if should_keep_default_for(item, proxy_type)? {
+    if should_keep_default_for(item, proxy_type) {
         if item.default.is_some() {
             return Ok(TokenStream2::new());
         } else {
-            return item.sig.span()
-                .err(format!(
-                    "the method `{}` has the attribute `keep_default_for` but is not a default \
-                        method (no body is provided)",
-                    item.sig.ident,
-                ))
-                .emit_with_attr_note();
+            emit_error!(
+                item.sig.span(),
+                "the method `{}` has the attribute `keep_default_for` but is not a default \
+                    method (no body is provided)",
+                item.sig.ident,
+            );
+            return Err(());
         }
     }
 
@@ -543,10 +548,10 @@ fn gen_method_item(
     let self_arg = SelfType::from_sig(sig);
 
     // Check self type and proxy type combination
-    check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span())?;
+    check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span().into());
 
     // Generate the list of argument used to call the method.
-    let args = get_arg_list(sig.inputs.iter())?;
+    let args = get_arg_list(sig.inputs.iter());
 
     // Build the turbofish type parameters. We need to pass type parameters
     // explicitly as they cannot be inferred in all cases (e.g. something like
@@ -656,31 +661,31 @@ fn check_receiver_compatible(
     proxy_type: &ProxyType,
     self_arg: SelfType,
     trait_name: &Ident,
-    sig_span: Span,
-) -> Result<(), ()> {
+    sig_span: Span2,
+) {
     match (proxy_type, self_arg) {
         (ProxyType::Ref, SelfType::Mut)
         | (ProxyType::Ref, SelfType::Value) => {
-            sig_span
-                .err(format!(
-                    "the trait `{}` cannot be auto-implemented for immutable references, because \
-                        this method has a `{}` receiver (only `&self` and no receiver are \
-                        allowed)",
+            emit_error!(
+                sig_span,
+                "the trait `{}` cannot be auto-implemented for immutable references, because \
+                    this method has a `{}` receiver",
                     trait_name,
-                    self_arg.as_str().unwrap(),
-                ))
-                .emit_with_attr_note()
+                    self_arg.as_str().unwrap();
+
+                note = "only `&self` and no receiver are allowed";
+            );
         }
 
         (ProxyType::RefMut, SelfType::Value) => {
-            sig_span
-                .err(format!(
-                    "the trait `{}` cannot be auto-implemented for mutable references, because \
-                        this method has a `self` receiver (only `&self`, `&mut self` and no \
-                        receiver are allowed)",
-                    trait_name,
-                ))
-                .emit_with_attr_note()
+            emit_error!(
+                sig_span,
+                "the trait `{}` cannot be auto-implemented for mutable references, because \
+                    this method has a `self` receiver",
+                trait_name;
+
+                note = "only `&self`, `&mut self` and no receiver are allowed";
+            );
         }
 
         (ProxyType::Rc, SelfType::Mut)
@@ -693,32 +698,31 @@ fn check_receiver_compatible(
                 "Arc"
             };
 
-            sig_span
-                .err(format!(
-                    "the trait `{}` cannot be auto-implemented for {}-smartpointer, because \
-                        this method has a `{}` receiver (only `&self` and no receiver are \
-                        allowed)",
+            emit_error!(
+                sig_span,
+                "the trait `{}` cannot be auto-implemented for {}, because \
+                    this method has a `{}` receiver",
                     trait_name,
                     ptr_name,
-                    self_arg.as_str().unwrap(),
-                ))
-                .emit_with_attr_note()
+                    self_arg.as_str().unwrap();
+
+                note = "only `&self` and no receiver are allowed";
+            );
         }
 
         (ProxyType::Fn, _) | (ProxyType::FnMut, _) | (ProxyType::FnOnce, _) => {
             // The Fn-trait being compatible with the receiver was already
             // checked before (in `gen_fn_type_for_trait()`).
-            Ok(())
         }
 
-        _ => Ok(()), // All other combinations are fine
+        _ => {}, // All other combinations are fine
     }
 }
 
 /// Generates a list of comma-separated arguments used to call the function.
 /// Currently, only simple names are valid and more complex pattern will lead
 /// to an error being emitted. `self` parameters are ignored.
-fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStream2, ()> {
+fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> TokenStream2 {
     let mut args = TokenStream2::new();
 
     for arg in inputs {
@@ -738,12 +742,11 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
                 } else {
-                    return arg.pat.span()
-                        .err(
-                            "argument patterns are not supported by #[auto-impl]. Please use \
-                             a simple name (not `_`)."
-                        )
-                        .emit_with_attr_note();
+                    emit_error!(
+                        arg.pat.span(), "argument patterns are not supported by #[auto-impl]";
+                        help = "please use a simple name like \"foo\" (but not `_`)";
+                    );
+                    continue
                 }
             }
 
@@ -753,22 +756,22 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> Result<TokenStre
         }
     }
 
-    Ok(args)
+    args
 }
 
 /// Checks if the given method has the attribute `#[auto_impl(keep_default_for(...))]`
 /// and if it contains the given proxy type.
-fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> Result<bool, ()> {
+fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool {
     // Get an iterator of just the attribute we are interested in.
     let mut it = m.attrs.iter()
         .filter(|attr| is_our_attr(attr))
-        .map(|attr| parse_our_attr(&attr));
+        .filter_map(|attr| parse_our_attr(&attr).ok());
 
     // Check the first (and hopefully only) `keep_default_for` attribute.
     let out = match it.next() {
         Some(attr) => {
             // Check if the attribute lists the given proxy type.
-            let OurAttr::KeepDefaultFor(proxy_types) = attr?;
+            let OurAttr::KeepDefaultFor(proxy_types) = attr;
             proxy_types.contains(proxy_type)
         }
 
@@ -778,10 +781,11 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> Resul
 
     // Check if there is another such attribute (which we disallow)
     if it.next().is_some() {
-        return m.sig.span()
-            .err("found two `keep_default_for` attributes on one method")
-            .emit_with_attr_note();
+        emit_error!(
+            m.sig.span(),
+            "found two `keep_default_for` attributes on one method",
+        );
     }
 
-    Ok(out)
+    out
 }

@@ -2,17 +2,14 @@
 //! attached to trait items.
 
 use proc_macro2::{Delimiter, TokenTree};
+use proc_macro_error::{abort, emit_error};
 use syn::{
+    spanned::Spanned,
+    visit_mut::{visit_item_trait_mut, VisitMut},
     Attribute, TraitItem,
-    visit_mut::{VisitMut, visit_item_trait_mut},
 };
 
-use crate::{
-    diag::{DiagnosticExt, SpanExt},
-    proxy::{parse_types, ProxyType},
-    spanned::Spanned
-};
-
+use crate::proxy::{parse_types, ProxyType};
 
 /// Removes all `#[auto_impl]` attributes that are attached to methods of the
 /// given trait.
@@ -26,14 +23,19 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
                 TraitItem::Const(c) => (&mut c.attrs, false),
                 TraitItem::Type(t) => (&mut t.attrs, false),
                 TraitItem::Macro(m) => (&mut m.attrs, false),
-                _ => panic!("encountered unexpected `TraitItem`, cannot handle that, sorry!"),
+                _ => abort!(
+                    item.span(),
+                    "encountered unexpected `TraitItem`, cannot handle that, sorry!";
+                    note = "auto-impl supports only methods, consts, types and macros currently";
+                ),
             };
 
             // Make sure non-methods do not have our attributes.
             if !is_method && attrs.iter().any(|a| is_our_attr(a)) {
-                item_span
-                    .err("`auto_impl` attributes are only allowed on methods")
-                    .emit();
+                emit_error!(
+                    item_span,
+                    "`#[auto_impl]` attributes are only allowed on methods",
+                );
             }
 
             attrs.retain(|a| !is_our_attr(a));
@@ -66,9 +68,12 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     let body = match &*tokens {
         [TokenTree::Group(g)] => g.stream(),
         _ => {
-            return attr.tokens.span()
-                .err(format!("expected single group delimitted by`()`, found '{:?}'", tokens))
-                .emit_with_attr_note();
+            emit_error!(
+                attr.tokens.span(),
+                "expected single group delimited by `()`, found '{:?}'",
+                tokens,
+            );
+            return Err(());
         }
     };
 
@@ -78,54 +83,52 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     let name = match it.next() {
         Some(TokenTree::Ident(x)) => x,
         Some(other) => {
-            return Spanned::span(&other)
-                .err(format!("expected ident, found '{}'", other))
-                .emit_with_attr_note();
+            emit_error!(other.span(), "expected ident, found '{}'", other);
+            return Err(());
         }
         None => {
-            return attr.tokens.span()
-                .err("expected ident, found nothing")
-                .emit_with_attr_note();
+            emit_error!(attr.tokens.span(), "expected ident, found nothing");
+            return Err(());
         }
     };
 
-    // Extract the parameters (which again, have to be a group delimitted by
+    // Extract the parameters (which again, have to be a group delimited by
     // `()`)
     let params = match it.next() {
         Some(TokenTree::Group(ref g)) if g.delimiter() == Delimiter::Parenthesis => {
             g.stream()
         }
         Some(other) => {
-            let msg = format!(
+            emit_error!(
+                other.span(),
                 "expected arguments for '{}' in parenthesis `()`, found `{}`",
                 name,
                 other,
             );
-            return Spanned::span(&other)
-                .err(msg)
-                .emit_with_attr_note();
+            return Err(());
         }
         None => {
-            let msg = format!(
+            emit_error!(
+                body.span(),
                 "expected arguments for '{}' in parenthesis `()`, found nothing",
                 name,
             );
-            return body.span()
-                .err(msg)
-                .emit_with_attr_note();
+            return Err(());
         }
     };
 
     // Finally match over the name of the attribute.
     let out = match () {
         () if name == "keep_default_for" => {
-            let proxy_types = parse_types(params.into())?;
+            let proxy_types = parse_types(params.into());
             OurAttr::KeepDefaultFor(proxy_types)
         }
         _ => {
-            return Spanned::span(&name)
-                .err(format!("invalid attribute '{}'", name))
-                .emit_with_attr_note();
+            emit_error!(
+                name.span(), "invalid attribute '{}'", name;
+                note = "only `keep_default_for` is supported";
+            );
+            return Err(());
         }
     };
 

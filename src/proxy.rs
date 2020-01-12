@@ -1,8 +1,7 @@
+use proc_macro_error::emit_error;
 use std::iter::Peekable;
 
 use crate::proc_macro::{token_stream, TokenStream, TokenTree};
-
-use crate::diag::SpanExt;
 
 /// Types for which a trait can automatically be implemented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,16 +31,19 @@ impl ProxyType {
 /// supposed to be a comma-separated list of possible proxy types. Legal values
 /// are `&`, `&mut`, `Box`, `Rc`, `Arc`, `Fn`, `FnMut` and `FnOnce`.
 ///
-/// If the given TokenStream is not valid, errors are emitted as appropriate
-/// and `Err(())` is returned.
-pub(crate) fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
+/// If the given TokenStream is not valid, errors are emitted as appropriate.
+/// Erroneous types will not be put into the Vec but rather simply skipped,
+/// the emitted errors will abort the compilation anyway.
+pub(crate) fn parse_types(args: TokenStream) -> Vec<ProxyType> {
     let mut out = Vec::new();
     let mut iter = args.into_iter().peekable();
 
     // While there are still tokens left...
     while iter.peek().is_some() {
         // First, we expect one of the proxy types.
-        out.push(eat_type(&mut iter)?);
+        if let Ok(ty) = eat_type(&mut iter) {
+            out.push(ty);
+        }
 
         // If the next token is a comma, we eat it (trailing commas are
         // allowed). If not, nothing happens (in this case, it's probably the
@@ -56,7 +58,7 @@ pub(crate) fn parse_types(args: TokenStream) -> Result<Vec<ProxyType>, ()> {
         }
     }
 
-    Ok(out)
+    out
 }
 
 /// Parses one `ProxyType` from the given token iterator. The iterator must not
@@ -67,25 +69,27 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
         a comma-separated list of types. Allowed values for types: `&`, \
         `&mut`, `Box`, `Rc`, `Arc`, `Fn`, `FnMut` and `FnOnce`.\
     ";
-    const EXPECTED_TEXT: &str = "Expected '&' or ident.";
+    const EXPECTED_TEXT: &str = "expected '&' or ident.";
 
     // We can unwrap because this function requires the iterator to be
     // non-empty.
     let ty = match iter.next().unwrap() {
         TokenTree::Group(group) => {
-            group.span()
-                .err(format!("unexpected group. {}", EXPECTED_TEXT))
-                .note(NOTE_TEXT)
-                .emit();
+            emit_error!(
+                group.span(),
+                "unexpected group, {}", EXPECTED_TEXT;
+                note = NOTE_TEXT;
+            );
 
             return Err(());
         }
 
         TokenTree::Literal(lit) => {
-            lit.span()
-                .err(format!("unexpected literal. {}", EXPECTED_TEXT))
-                .note(NOTE_TEXT)
-                .emit();
+            emit_error!(
+                lit.span(),
+                "unexpected literal, {}", EXPECTED_TEXT;
+                note = NOTE_TEXT;
+            );
 
             return Err(());
         }
@@ -93,8 +97,11 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
         TokenTree::Punct(punct) => {
             // Only '&' are allowed. Everything else leads to an error.
             if punct.as_char() != '&' {
-                let msg = format!("unexpected punctuation '{}'. {}", punct, EXPECTED_TEXT);
-                punct.span().err(msg).note(NOTE_TEXT).emit();
+                emit_error!(
+                    punct.span(),
+                    "unexpected punctuation '{}', {}", punct, EXPECTED_TEXT;
+                    note = NOTE_TEXT;
+                );
 
                 return Err(());
             }
@@ -123,12 +130,11 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
                 "FnMut" => ProxyType::FnMut,
                 "FnOnce" => ProxyType::FnOnce,
                 _ => {
-                    let msg = format!("unexpected '{}'. {}", ident, EXPECTED_TEXT);
-                    ident.span()
-                        .err(msg)
-                        .note(NOTE_TEXT)
-                        .emit();
-
+                    emit_error!(
+                        ident.span(),
+                        "unexpected '{}', {}", ident, EXPECTED_TEXT;
+                        note = NOTE_TEXT;
+                    );
                     return Err(());
                 }
             }
