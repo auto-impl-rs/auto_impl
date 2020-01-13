@@ -271,7 +271,7 @@ pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             set_dummy(trait_def.to_token_stream());
 
             quote!(#trait_def #generated).into()
-        },
+        }
 
         // If the token stream could not be parsed as trait, this most
         // likely means that the attribute was applied to a non-trait item.
