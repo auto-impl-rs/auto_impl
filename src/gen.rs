@@ -106,7 +106,7 @@ fn gen_header(
                                     }) => path.is_ident("Sized"),
                                     _ => false,
                                 })
-                            },
+                            }
                             _ => false,
                         }
                     });
@@ -126,7 +126,7 @@ fn gen_header(
                         } else {
                             false
                         }
-                    },
+                    }
                     _ => false,
                 };
 
@@ -200,7 +200,7 @@ fn gen_header(
             ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => {
                 let fn_bound = gen_fn_type_for_trait(proxy_type, trait_def);
                 (quote! {}, quote! { : #fn_bound })
-            },
+            }
         };
 
         // Append all parameters from the trait. Sadly, `impl_generics`
@@ -335,10 +335,10 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
         // `FnOnce`
         (SelfType::Mut, ProxyType::FnOnce) => {
             Some(("`FnOnce`", "a `&mut self`", " (only `self` is allowed)"))
-        },
+        }
         (SelfType::Ref, ProxyType::FnOnce) => {
             Some(("`FnOnce`", "a `&self`", " (only `self` is allowed)"))
-        },
+        }
 
         // We can't impl methods with `&self` receiver for `FnMut`
         (SelfType::Ref, ProxyType::FnMut) => Some((
@@ -405,7 +405,7 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
             FnArg::Typed(pat) => {
                 let ty = &pat.ty;
                 arg_types.append_all(quote! { #ty , });
-            },
+            }
 
             // We skipped the receiver already.
             FnArg::Receiver(r) => {
@@ -413,7 +413,7 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
                     r.span(),
                     "receiver argument that's not the first argument (auto_impl is confused)",
                 );
-            },
+            }
         }
     }
 
@@ -437,13 +437,13 @@ fn gen_items(
             match item {
                 TraitItem::Const(c) => {
                     gen_const_item(proxy_type, c, trait_def, proxy_ty_param).ok()
-                },
+                }
                 TraitItem::Method(method) => {
                     gen_method_item(proxy_type, method, trait_def, proxy_ty_param).ok()
-                },
+                }
                 TraitItem::Type(ty) => {
                     gen_type_item(proxy_type, ty, trait_def, proxy_ty_param).ok()
-                },
+                }
                 TraitItem::Macro(mac) => {
                     // We cannot resolve the macro invocation and thus cannot know
                     // if it adds additional items to the trait. Thus, we have to
@@ -454,7 +454,7 @@ fn gen_items(
                         supported by auto_impl",
                     );
                     None
-                },
+                }
                 TraitItem::Verbatim(v) => {
                     // I don't quite know when this happens, but it's better to
                     // notify the user with a nice error instead of panicking.
@@ -463,7 +463,7 @@ fn gen_items(
                         "unexpected 'verbatim'-item (auto-impl doesn't know how to handle it)",
                     );
                     None
-                },
+                }
                 _ => {
                     // `syn` enums are `non_exhaustive` to be future-proof. If a
                     // trait contains a kind of item we don't even know about, we
@@ -473,7 +473,7 @@ fn gen_items(
                         "unknown trait item (auto-impl doesn't know how to handle it)",
                     );
                     None
-                },
+                }
             }
         })
         .collect()
@@ -624,26 +624,26 @@ fn gen_method_item(
         // Fn proxy types get a special treatment
         _ if proxy_type.is_fn() => {
             quote! { ({self})(#args) }
-        },
+        }
 
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smart pointer or Box.
             quote! { #proxy_ty_param::#fn_name #generic_types(#args) }
-        },
+        }
 
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
             quote! { #proxy_ty_param::#fn_name #generic_types(*self, #args) }
-        },
+        }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
             quote! { #proxy_ty_param::#fn_name #generic_types(self, #args) }
-        },
+        }
     };
 
     // Combine body with signature
@@ -670,7 +670,7 @@ impl SelfType {
                 } else {
                     SelfType::Mut
                 }
-            },
+            }
             _ => SelfType::None,
         }
     }
@@ -704,7 +704,7 @@ fn check_receiver_compatible(
 
                 note = "only `&self` and no receiver are allowed";
             );
-        },
+        }
 
         (ProxyType::RefMut, SelfType::Value) => {
             emit_error!(
@@ -715,7 +715,7 @@ fn check_receiver_compatible(
 
                 note = "only `&self`, `&mut self` and no receiver are allowed";
             );
-        },
+        }
 
         (ProxyType::Rc, SelfType::Mut)
         | (ProxyType::Rc, SelfType::Value)
@@ -737,14 +737,14 @@ fn check_receiver_compatible(
 
                 note = "only `&self` and no receiver are allowed";
             );
-        },
+        }
 
         (ProxyType::Fn, _) | (ProxyType::FnMut, _) | (ProxyType::FnOnce, _) => {
             // The Fn-trait being compatible with the receiver was already
             // checked before (in `gen_fn_type_for_trait()`).
-        },
+        }
 
-        _ => {}, // All other combinations are fine
+        _ => {} // All other combinations are fine
     }
 }
 
@@ -777,11 +777,11 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> TokenStream2 {
                     );
                     continue;
                 }
-            },
+            }
 
             // There is only one such argument. We handle it elsewhere and
             // can ignore it here.
-            FnArg::Receiver(_) => {},
+            FnArg::Receiver(_) => {}
         }
     }
 
@@ -804,7 +804,7 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool 
             // Check if the attribute lists the given proxy type.
             let OurAttr::KeepDefaultFor(proxy_types) = attr;
             proxy_types.contains(proxy_type)
-        },
+        }
 
         // If there is no such attribute, we return `false`
         None => false,

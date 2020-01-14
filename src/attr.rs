@@ -71,7 +71,7 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
                 tokens,
             );
             return Err(());
-        },
+        }
     };
 
     let mut it = body.clone().into_iter();
@@ -82,11 +82,11 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
         Some(other) => {
             emit_error!(other.span(), "expected ident, found '{}'", other);
             return Err(());
-        },
+        }
         None => {
             emit_error!(attr.tokens.span(), "expected ident, found nothing");
             return Err(());
-        },
+        }
     };
 
     // Extract the parameters (which again, have to be a group delimited by
@@ -101,7 +101,7 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
                 other,
             );
             return Err(());
-        },
+        }
         None => {
             emit_error!(
                 body.span(),
@@ -109,7 +109,7 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
                 name,
             );
             return Err(());
-        },
+        }
     };
 
     // Finally match over the name of the attribute.
