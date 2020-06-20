@@ -2,7 +2,7 @@ error[E0277]: the trait bound `std::boxed::Box<Dog>: Supi` is not satisfied
   --> $DIR/super_trait_not_implemented.rs:18:18
    |
 14 | fn requires_foo<T: Foo>(_: T) {}
-   |    ------------    --- required by this bound in `requires_foo`
+   |                    --- required by this bound in `requires_foo`
 ...
 18 |     requires_foo(Box::new(Dog)); // shouldn't, because `Box<Dog>: Supi` is not satisfied
    |                  ^^^^^^^^^^^^^ the trait `Supi` is not implemented for `std::boxed::Box<Dog>`
