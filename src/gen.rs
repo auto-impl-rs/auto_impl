@@ -185,6 +185,19 @@ fn gen_header(
                         }
                     })
                     .flat_map(|p| &p.bounds)
+                    .filter_map(|b| {
+                        // We are only interested in trait bounds. That's
+                        // because lifetime bounds on `Self` do not need to be
+                        // added to the impl header. That's because all values
+                        // "derived" from `self` also meet the same lifetime
+                        // bound as `self`. In simpler terms: while `self.field`
+                        // might not be `Clone` even if `Self: Clone`,
+                        // `self.field` is always `: 'a` if `Self: 'a`.
+                        match b {
+                            TypeParamBound::Trait(t) => Some(t),
+                            TypeParamBound::Lifetime(_) => None,
+                        }
+                    })
             });
 
         // Determine if our proxy type needs a lifetime parameter
