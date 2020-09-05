@@ -29,7 +29,7 @@ nightly = []
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "1.0", features = ["full", "visit", "visit-mut"] }
-proc-macro-error = "0.4.4"
+proc-macro-error = "1.0.0"
 
 [dev-dependencies]
 trybuild = "1"
