@@ -141,7 +141,7 @@ fn gen_header(
         let relaxation = if sized_required {
             quote! {}
         } else {
-            quote! { + ?::std::marker::Sized }
+            quote! { + ?::core::marker::Sized }
         };
 
         // Check if there are some `Self: Foo` bounds on methods. If so, we
@@ -383,9 +383,9 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
 
     // The path to the Fn-trait
     let fn_name = match proxy_type {
-        ProxyType::Fn => quote! { ::std::ops::Fn },
-        ProxyType::FnMut => quote! { ::std::ops::FnMut },
-        ProxyType::FnOnce => quote! { ::std::ops::FnOnce },
+        ProxyType::Fn => quote! { ::core::ops::Fn },
+        ProxyType::FnMut => quote! { ::core::ops::FnMut },
+        ProxyType::FnOnce => quote! { ::core::ops::FnOnce },
         _ => panic!("internal error in auto_impl (function contract violation)"),
     };
 
