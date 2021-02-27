@@ -7,6 +7,5 @@ error[E0277]: the size for values of type `dyn Trait` cannot be known at compila
 12 |     assert_impl::<Box<dyn Trait>>();
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
    |
-   = help: the trait `std::marker::Sized` is not implemented for `dyn Trait`
-   = note: to learn more, visit <https://doc.rust-lang.org/book/ch19-04-advanced-types.html#dynamically-sized-types-and-the-sized-trait>
-   = note: required because of the requirements on the impl of `Trait` for `std::boxed::Box<dyn Trait>`
+   = help: the trait `Sized` is not implemented for `dyn Trait`
+   = note: required because of the requirements on the impl of `Trait` for `Box<dyn Trait>`
