@@ -27,9 +27,18 @@ pub(crate) fn gen_impls(proxy_types: &[ProxyType], trait_def: &syn::ItemTrait) -
         let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param);
         let items = gen_items(proxy_type, trait_def, &proxy_ty_param);
 
-        tokens.append_all(quote! {
-            #header { #( #items )* }
-        });
+        if matches!(proxy_type, ProxyType::Box | ProxyType::Rc | ProxyType::Arc) {
+            tokens.append_all(quote! {
+                const _: () = {
+                    extern crate alloc;
+                    #header { #( #items )* }
+                };
+            });
+        } else {
+            tokens.append_all(quote! {
+                #header { #( #items )* }
+            });
+        }
     }
 
     tokens
@@ -141,7 +150,7 @@ fn gen_header(
         let relaxation = if sized_required {
             quote! {}
         } else {
-            quote! { + ?::std::marker::Sized }
+            quote! { + ?::core::marker::Sized }
         };
 
         // Check if there are some `Self: Foo` bounds on methods. If so, we
@@ -246,9 +255,9 @@ fn gen_header(
     let self_ty = match *proxy_type {
         ProxyType::Ref      => quote! { & #proxy_lt_param #proxy_ty_param },
         ProxyType::RefMut   => quote! { & #proxy_lt_param mut #proxy_ty_param },
-        ProxyType::Arc      => quote! { ::std::sync::Arc<#proxy_ty_param> },
-        ProxyType::Rc       => quote! { ::std::rc::Rc<#proxy_ty_param> },
-        ProxyType::Box      => quote! { ::std::boxed::Box<#proxy_ty_param> },
+        ProxyType::Arc      => quote! { alloc::sync::Arc<#proxy_ty_param> },
+        ProxyType::Rc       => quote! { alloc::rc::Rc<#proxy_ty_param> },
+        ProxyType::Box      => quote! { alloc::boxed::Box<#proxy_ty_param> },
         ProxyType::Fn       => quote! { #proxy_ty_param },
         ProxyType::FnMut    => quote! { #proxy_ty_param },
         ProxyType::FnOnce   => quote! { #proxy_ty_param },
@@ -383,9 +392,9 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
 
     // The path to the Fn-trait
     let fn_name = match proxy_type {
-        ProxyType::Fn => quote! { ::std::ops::Fn },
-        ProxyType::FnMut => quote! { ::std::ops::FnMut },
-        ProxyType::FnOnce => quote! { ::std::ops::FnOnce },
+        ProxyType::Fn => quote! { ::core::ops::Fn },
+        ProxyType::FnMut => quote! { ::core::ops::FnMut },
+        ProxyType::FnOnce => quote! { ::core::ops::FnOnce },
         _ => panic!("internal error in auto_impl (function contract violation)"),
     };
 
