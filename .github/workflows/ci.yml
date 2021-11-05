@@ -25,11 +25,14 @@ jobs:
     - name: Build
       run: cargo build
     - name: Run tests
-      run: cargo test
+      run: cargo test -- --skip ui_compile_fail
+    - name: Run compile-fail tests
+      if: matrix.rust-version == 'stable'
+      run: cargo test -- ui_compile_fail
 
     - name: Build with nightly feature
       if: matrix.rust-version == 'nightly'
       run: cargo build --features=nightly
     - name: Run tests with nightly feature
       if: matrix.rust-version == 'nightly'
-      run: cargo test --features=nightly
+      run: cargo test --features=nightly -- --skip ui_compile_fail
