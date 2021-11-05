@@ -5,7 +5,7 @@ some common smart pointers and closures.
 
 # Usage
 
-This library requires Rust 1.30.0 or newer.
+This library requires Rust 1.37.0 or newer.
 
 Add `auto_impl` to your `Cargo.toml` and just use it in your crate:
 

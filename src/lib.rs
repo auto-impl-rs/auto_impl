@@ -206,8 +206,8 @@
 //!
 //! # The `nightly` feature gate
 //!
-//! By default, this crate compiles on stable (since 1.30.0). If you don't need
-//! stable support, you can enable the `nightly` feature of this crate:
+//! By default, this crate compiles on stable. If you don't need stable support,
+//! you can enable the `nightly` feature of this crate:
 //!
 //! ```toml
 //! [dependencies]

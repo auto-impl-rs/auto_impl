@@ -14,6 +14,7 @@ categories = ["development-tools", "rust-patterns"]
 readme = "README.md"
 autotests = true
 edition = "2018"
+rust-version = "1.37"
 
 
 [lib]
