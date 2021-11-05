@@ -27,7 +27,7 @@ pub(crate) fn gen_impls(proxy_types: &[ProxyType], trait_def: &syn::ItemTrait) -
         let header = gen_header(proxy_type, trait_def, &proxy_ty_param, &proxy_lt_param);
         let items = gen_items(proxy_type, trait_def, &proxy_ty_param);
 
-        if matches!(proxy_type, ProxyType::Box | ProxyType::Rc | ProxyType::Arc) {
+        if let ProxyType::Box | ProxyType::Rc | ProxyType::Arc = proxy_type {
             tokens.append_all(quote! {
                 const _: () = {
                     extern crate alloc;
