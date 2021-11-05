@@ -1,0 +1,35 @@
+name: CI
+
+on: [pull_request, push]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --deny warnings
+
+jobs:
+  check:
+    name: 'Build & test'
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        rust-version: ['stable', 'beta', 'nightly']
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust-version }}
+        default: true
+    - uses: Swatinem/rust-cache@v1
+
+    - name: Build
+      run: cargo build
+    - name: Run tests
+      run: cargo test
+
+    - name: Build with nightly feature
+      if: matrix.rust-version == 'nightly'
+      run: cargo build --features=nightly
+    - name: Run tests with nightly feature
+      if: matrix.rust-version == 'nightly'
+      run: cargo test --features=nightly

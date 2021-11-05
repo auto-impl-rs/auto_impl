@@ -15,9 +15,6 @@ readme = "README.md"
 autotests = true
 edition = "2018"
 
-[badges]
-travis-ci = { repository = "auto-impl-rs/auto_impl" }
-
 
 [lib]
 proc-macro = true
