@@ -2,9 +2,9 @@ use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use proc_macro_error::{abort, emit_error};
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    spanned::Spanned, FnArg, Ident, ItemTrait, Lifetime, Pat, PatIdent, ReturnType, Signature,
-    TraitBound, TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod, TraitItemType,
-    Type, TypeParamBound, WherePredicate,
+    spanned::Spanned, Attribute, FnArg, Ident, ItemTrait, Lifetime, Pat, PatIdent, ReturnType,
+    Signature, TraitBound, TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod,
+    TraitItemType, Type, TypeParamBound, WherePredicate,
 };
 
 use crate::{
@@ -12,8 +12,6 @@ use crate::{
     attr::{is_our_attr, parse_our_attr, OurAttr},
     proxy::ProxyType,
 };
-
-
 
 /// Generates one complete impl of the given trait for each of the given proxy
 /// types. All impls are returned as token stream.
@@ -58,7 +56,6 @@ fn gen_header(
     // The name of the trait with all generic parameters applied.
     let trait_ident = &trait_def.ident;
     let trait_path = quote! { #trait_ident #trait_generics };
-
 
     // Here we assemble the parameter list of the impl (the thing in
     // `impl< ... >`). This is simply the parameter list of the trait with
@@ -248,7 +245,6 @@ fn gen_header(
         params
     };
 
-
     // The tokens after `for` in the impl header (the type the trait is
     // implemented for).
     #[rustfmt::skip]
@@ -345,7 +341,6 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
         );
     }
 
-
     // =======================================================================
     // Check if the trait can be implemented for the given proxy type
     let self_type = SelfType::from_sig(sig);
@@ -439,7 +434,6 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
         }
     }
 
-
     quote! {
         for< #(#local_lifetimes),* > #fn_name (#arg_types) #ret
     }
@@ -528,9 +522,10 @@ fn gen_const_item(
     // We simply use the associated const from our type parameter.
     let const_name = &item.ident;
     let const_ty = &item.ty;
+    let attrs = filter_attrs(&item.attrs);
 
     Ok(quote! {
-        const #const_name: #const_ty = #proxy_ty_param::#const_name;
+        #(#attrs)* const #const_name: #const_ty = #proxy_ty_param::#const_name;
     })
 }
 
@@ -560,9 +555,10 @@ fn gen_type_item(
 
     // We simply use the associated type from our type parameter.
     let assoc_name = &item.ident;
+    let attrs = filter_attrs(&item.attrs);
 
     Ok(quote! {
-        type #assoc_name = #proxy_ty_param::#assoc_name;
+        #(#attrs)* type #assoc_name = #proxy_ty_param::#assoc_name;
     })
 }
 
@@ -597,6 +593,7 @@ fn gen_method_item(
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
     let self_arg = SelfType::from_sig(sig);
+    let attrs = filter_attrs(&item.attrs);
 
     // Check self type and proxy type combination
     check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span().into());
@@ -669,9 +666,8 @@ fn gen_method_item(
     };
 
     // Combine body with signature
-    Ok(quote! { #sig { #body }})
+    Ok(quote! { #(#attrs)* #sig { #body }})
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelfType {
@@ -841,4 +837,12 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool 
     }
 
     out
+}
+
+fn filter_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path.is_ident("cfg"))
+        .cloned()
+        .collect()
 }
