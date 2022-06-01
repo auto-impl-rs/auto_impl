@@ -1,11 +1,8 @@
 use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use proc_macro_error::{abort, emit_error};
 use quote::{ToTokens, TokenStreamExt};
-use syn::{
-    spanned::Spanned, Attribute, FnArg, Ident, ItemTrait, Lifetime, Pat, PatIdent, ReturnType,
-    Signature, TraitBound, TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod,
-    TraitItemType, Type, TypeParamBound, WherePredicate,
-};
+use syn::{spanned::Spanned, Attribute, FnArg, Ident, ItemTrait, Lifetime, Pat, PatIdent, ReturnType, Signature, TraitBound, TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type, TypeParamBound, WherePredicate, PatType, Token};
+use syn::punctuated::Punctuated;
 
 use crate::{
     analyze::find_suitable_param_names,
@@ -595,8 +592,8 @@ fn gen_method_item(
     // If this method has a `#[auto_impl(keep_default_for(...))]` attribute for
     // the given proxy type, we don't generate anything for this impl block.
     if should_keep_default_for(item, proxy_type) {
-        if item.default.is_some() {
-            return Ok(TokenStream2::new());
+        return if item.default.is_some() {
+            Ok(TokenStream2::new())
         } else {
             emit_error!(
                 item.sig.span(),
@@ -604,20 +601,37 @@ fn gen_method_item(
                     method (no body is provided)",
                 item.sig.ident,
             );
-            return Err(());
+            Err(())
         }
     }
 
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
-    let self_arg = SelfType::from_sig(sig);
+    let self_arg = SelfType::from_sig(&sig);
     let attrs = filter_attrs(&item.attrs);
 
     // Check self type and proxy type combination
     check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span().into());
 
     // Generate the list of argument used to call the method.
-    let args = get_arg_list(sig.inputs.iter());
+    let (inputs, args) = get_arg_list(sig.inputs.iter());
+
+    // Construct a signature we'll use to generate the proxy method impl
+    // This is _almost_ the same as the original, except we use the inputs constructed
+    // alongside the args. These may be slightly different than the original trait.
+    let sig = Signature {
+        constness: item.sig.constness,
+        asyncness: item.sig.asyncness,
+        unsafety: item.sig.unsafety,
+        abi: item.sig.abi.clone(),
+        fn_token: item.sig.fn_token,
+        ident: item.sig.ident.clone(),
+        generics: item.sig.generics.clone(),
+        paren_token: item.sig.paren_token,
+        inputs,
+        variadic: item.sig.variadic.clone(),
+        output: item.sig.output.clone(),
+    };
 
     // Build the turbofish type parameters. We need to pass type parameters
     // explicitly as they cannot be inferred in all cases (e.g. something like
@@ -787,25 +801,40 @@ fn check_receiver_compatible(
 /// Generates a list of comma-separated arguments used to call the function.
 /// Currently, only simple names are valid and more complex pattern will lead
 /// to an error being emitted. `self` parameters are ignored.
-fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> TokenStream2 {
+fn get_arg_list<'a>(original_inputs: impl Iterator<Item = &'a FnArg>) -> (Punctuated<FnArg, Token![,]>, TokenStream2) {
     let mut args = TokenStream2::new();
+    let mut inputs = Punctuated::new();
 
-    for arg in inputs {
+    for arg in original_inputs {
         match arg {
             FnArg::Typed(arg) => {
                 // Make sure the argument pattern is a simple name. In
                 // principle, we could probably support patterns, but it's
                 // not that important now.
                 if let Pat::Ident(PatIdent {
-                    by_ref: None,
-                    mutability: None,
+                    by_ref: _by_ref,
+                    mutability: _mutability,
                     ident,
                     subpat: None,
-                    ..
+                    attrs,
                 }) = &*arg.pat
                 {
                     // Add name plus trailing comma to tokens
                     args.append_all(quote! { #ident , });
+
+                    // Add an input argument that omits the `mut` and `ref` pattern bindings
+                    inputs.push(FnArg::Typed(PatType {
+                        attrs: arg.attrs.clone(),
+                        pat: Box::new(Pat::Ident(PatIdent {
+                            attrs: attrs.clone(),
+                            by_ref: None,
+                            mutability: None,
+                            ident: ident.clone(),
+                            subpat: None,
+                        })),
+                        colon_token: arg.colon_token,
+                        ty: arg.ty.clone(),
+                    }))
                 } else {
                     emit_error!(
                         arg.pat.span(), "argument patterns are not supported by #[auto-impl]";
@@ -817,11 +846,13 @@ fn get_arg_list<'a>(inputs: impl Iterator<Item = &'a FnArg>) -> TokenStream2 {
 
             // There is only one such argument. We handle it elsewhere and
             // can ignore it here.
-            FnArg::Receiver(_) => {}
+            FnArg::Receiver(arg) => {
+                inputs.push(FnArg::Receiver(arg.clone()));
+            }
         }
     }
 
-    args
+    (inputs, args)
 }
 
 /// Checks if the given method has the attribute `#[auto_impl(keep_default_for(...))]`
