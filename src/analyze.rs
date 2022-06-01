@@ -92,19 +92,6 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     (ty_name, lt)
 }
 
-/// On nightly, we use `def_site` hygiene which puts our names into another
-/// universe than the names of the user. This is not strictly required as our
-/// name is already pretty much guaranteed to not conflict with another name,
-/// but this is cleaner and just the correct thing to do.
-#[cfg(feature = "nightly")]
-fn param_span() -> Span2 {
-    crate::proc_macro::Span::def_site().into()
-}
-
-/// On stable, we use `call_site()` hygiene. That means that our names could
-/// theoretically collide with names of the user. But we made sure this doesn't
-/// happen.
-#[cfg(not(feature = "nightly"))]
 fn param_span() -> Span2 {
     Span2::call_site()
 }
