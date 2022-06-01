@@ -1,5 +1,16 @@
 error: this trait cannot be auto-implemented for Fn-traits (only traits with exactly one method and no other items are allowed)
- --> $DIR/fn_multiple_methods.rs:5:1
+ --> tests/compile-fail/fn_multiple_methods.rs:5:1
   |
-5 | trait Foo {
-  | ^^^^^
+5 | / trait Foo {
+6 | |     fn a(&self);
+7 | |     fn b(&self);
+8 | | }
+  | |_^
+
+error[E0618]: expected function, found `&T`
+ --> tests/compile-fail/fn_multiple_methods.rs:4:1
+  |
+4 | #[auto_impl(Fn)]
+  | ^^^^^^^^^^^^^^^^ call expression requires function
+  |
+  = note: this error originates in the attribute macro `auto_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
