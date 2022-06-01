@@ -6,7 +6,6 @@ use syn::{
     Block, Ident, ItemTrait, Lifetime,
 };
 
-
 /// The type parameter used in the proxy type. Usually, one would just use `T`,
 /// but this could conflict with type parameters on the trait.
 ///
@@ -20,7 +19,6 @@ const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
 /// The lifetime parameter used in the proxy type if the proxy type is `&` or
 /// `&mut`. For more information see `PROXY_TY_PARAM_NAME`.
 const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
-
 
 /// We need to introduce our own type and lifetime parameter. Regardless of
 /// what kind of hygiene we use for the parameter, it would be nice (for docs
@@ -67,7 +65,6 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
         lt_names: HashSet::new(),
     };
     visit_item_trait(&mut visitor, trait_def);
-
 
     fn char_to_ident(c: u8) -> Ident {
         let arr = [c];

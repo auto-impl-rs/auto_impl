@@ -227,7 +227,6 @@
     feature(proc_macro_diagnostic, proc_macro_span, proc_macro_def_site)
 )]
 
-
 extern crate proc_macro;
 #[macro_use]
 extern crate quote;
@@ -236,7 +235,6 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{abort_call_site, proc_macro_error, set_dummy};
 use quote::ToTokens;
-
 
 mod analyze;
 mod attr;

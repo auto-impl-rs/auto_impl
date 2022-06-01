@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use auto_impl::auto_impl;
 
-
 /// This trait can be implemented for all reference or pointer types: &, &mut,
 /// Box, Rc and Arc.
 ///
