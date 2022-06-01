@@ -1,9 +1,9 @@
 error: couldn't parse trait item
 
-  = note: expected `trait`
-  = note: the #[auto_impl] attribute can only be applied to traits!
+         = note: expected `trait`
+         = note: the #[auto_impl] attribute can only be applied to traits!
 
- --> $DIR/attr_on_fn.rs:4:1
+ --> tests/compile-fail/attr_on_fn.rs:4:1
   |
 4 | #[auto_impl(&, &mut)]
   | ^^^^^^^^^^^^^^^^^^^^^
