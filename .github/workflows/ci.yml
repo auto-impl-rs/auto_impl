@@ -26,10 +26,10 @@ jobs:
       run: cargo build
     - name: Run tests
       if: matrix.rust-version != '1.37'
-      run: cargo test -- --skip ui_compile_fail
+      run: cargo test --all -- --skip ui_compile_fail
     - name: Run compile-fail tests
       if: matrix.rust-version == 'stable'
       run: cargo test -- ui_compile_fail
     - name: Run tests (MSRV)
       if: matrix.rust-version == '1.37'
-      run: cargo test --lib -- --skip ui_compile_fail
+      run: cargo test -- --skip ui_compile_fail
