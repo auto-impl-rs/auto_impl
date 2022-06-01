@@ -341,6 +341,24 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
         );
     }
 
+    // Function traits cannot support generics in their arguments
+    // These would require HRTB for types instead of just lifetimes
+    for type_param in sig.generics.type_params() {
+        emit_error!(
+            type_param.span(),
+            "the trait '{}' cannot be implemented for Fn-traits: generic arguments are not allowed",
+            trait_def.ident,
+        );
+    }
+
+    for const_param in sig.generics.const_params() {
+        emit_error!(
+            const_param.span(),
+            "the trait '{}' cannot be implemented for Fn-traits: constant arguments are not allowed",
+            trait_def.ident,
+        );
+    }
+
     // =======================================================================
     // Check if the trait can be implemented for the given proxy type
     let self_type = SelfType::from_sig(sig);
