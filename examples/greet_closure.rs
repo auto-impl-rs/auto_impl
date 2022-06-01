@@ -1,6 +1,5 @@
 use auto_impl::auto_impl;
 
-
 /// This simple trait can be implemented for `Fn` types, but not for `FnMut` or
 /// `FnOnce` types. The latter two types require a mutable reference to `self`
 /// or a `self` by value to be called, but `greet()` only has an immutable
@@ -21,12 +20,10 @@ trait Greeter {
     fn greet(&self, name: &str);
 }
 
-
 fn greet_people(greeter: impl Greeter) {
     greeter.greet("Anna");
     greeter.greet("Bob");
 }
-
 
 fn main() {
     // We can simply pass a closure here, since this specific closure

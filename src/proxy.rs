@@ -143,7 +143,6 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
     Ok(ty)
 }
 
-
 // Right now, we can't really write useful tests. Many functions from
 // `proc_macro` use a compiler internal session. This session is only valid
 // when we were actually called as a proc macro. We need to add tests once

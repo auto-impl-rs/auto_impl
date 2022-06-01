@@ -8,7 +8,6 @@
 
 use auto_impl::auto_impl;
 
-
 // Shows the error message for the case that `#[auto_impl]` was used with
 // incorrect proxy types. Only proxy types like `&` and `Box` are allowed. Add
 // this next line to see the error!
@@ -23,6 +22,5 @@ trait Foo {
 struct Bar {
     x: u32,
 }
-
 
 fn main() {}

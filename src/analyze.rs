@@ -6,7 +6,6 @@ use syn::{
     Block, Ident, ItemTrait, Lifetime,
 };
 
-
 /// The type parameter used in the proxy type. Usually, one would just use `T`,
 /// but this could conflict with type parameters on the trait.
 ///
@@ -20,7 +19,6 @@ const PROXY_TY_PARAM_NAME: &str = "__AutoImplProxyT";
 /// The lifetime parameter used in the proxy type if the proxy type is `&` or
 /// `&mut`. For more information see `PROXY_TY_PARAM_NAME`.
 const PROXY_LT_PARAM_NAME: &str = "'__auto_impl_proxy_lifetime";
-
 
 /// We need to introduce our own type and lifetime parameter. Regardless of
 /// what kind of hygiene we use for the parameter, it would be nice (for docs
@@ -68,7 +66,6 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     };
     visit_item_trait(&mut visitor, trait_def);
 
-
     fn char_to_ident(c: u8) -> Ident {
         let arr = [c];
         let s = ::std::str::from_utf8(&arr).unwrap();
@@ -95,19 +92,6 @@ pub(crate) fn find_suitable_param_names(trait_def: &ItemTrait) -> (Ident, Lifeti
     (ty_name, lt)
 }
 
-/// On nightly, we use `def_site` hygiene which puts our names into another
-/// universe than the names of the user. This is not strictly required as our
-/// name is already pretty much guaranteed to not conflict with another name,
-/// but this is cleaner and just the correct thing to do.
-#[cfg(feature = "nightly")]
-fn param_span() -> Span2 {
-    crate::proc_macro::Span::def_site().into()
-}
-
-/// On stable, we use `call_site()` hygiene. That means that our names could
-/// theoretically collide with names of the user. But we made sure this doesn't
-/// happen.
-#[cfg(not(feature = "nightly"))]
 fn param_span() -> Span2 {
     Span2::call_site()
 }

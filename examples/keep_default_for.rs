@@ -7,7 +7,6 @@
 //! type.
 use auto_impl::auto_impl;
 
-
 #[auto_impl(&, Box)]
 trait Foo {
     fn required(&self) -> String;
