@@ -2,7 +2,7 @@
 name = "auto_impl_async_await_example"
 version = "0.0.0"
 publish = false
-edition = "2021"
+edition = "2018"
 
 [dependencies]
 auto_impl = { path = "../../" }
