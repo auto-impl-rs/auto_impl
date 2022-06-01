@@ -5,8 +5,9 @@ struct Data {
     id: usize,
 }
 
-#[auto_impl(Fn)]
+#[auto_impl(&, Box)]
 trait Foo {
+    #[auto_impl(keep_default_for(&))]
     fn foo(&self, ref mut data: Data) {
         data.id += 1;
     }
