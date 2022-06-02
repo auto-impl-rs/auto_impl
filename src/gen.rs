@@ -654,14 +654,25 @@ fn gen_method_item(
     // So we just specify type parameters. In the future, however, we need to
     // add support for const parameters. But those are not remotely stable yet,
     // so we can wait a bit still.
-    let generic_types = sig
+    let const_params = sig.generics.const_params()
+        .map(|param| {
+            let name = &param.ident;
+            quote! { #name, }
+        });
+
+    let type_params = sig
         .generics
         .type_params()
         .map(|param| {
             let name = &param.ident;
             quote! { #name , }
-        })
+        });
+
+    // Const params appear before other generics, so we collect them first
+    let generic_types = const_params
+        .chain(type_params)
         .collect::<TokenStream2>();
+
     let generic_types = if generic_types.is_empty() {
         generic_types
     } else {
