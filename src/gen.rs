@@ -1,8 +1,12 @@
 use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use proc_macro_error::{abort, emit_error};
 use quote::{ToTokens, TokenStreamExt};
-use syn::{spanned::Spanned, Attribute, FnArg, Ident, ItemTrait, Lifetime, Pat, PatIdent, ReturnType, Signature, TraitBound, TraitBoundModifier, TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type, TypeParamBound, WherePredicate, PatType, Token};
-use syn::punctuated::Punctuated;
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, Attribute, FnArg, GenericParam, Ident, ItemTrait,
+    Lifetime, Pat, PatIdent, PatType, ReturnType, Signature, Token, TraitBound, TraitBoundModifier,
+    TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type, TypeParamBound,
+    WherePredicate,
+};
 
 use crate::{
     analyze::find_suitable_param_names,
@@ -602,7 +606,7 @@ fn gen_method_item(
                 item.sig.ident,
             );
             Err(())
-        }
+        };
     }
 
     // Determine the kind of the method, determined by the self type.
@@ -654,23 +658,21 @@ fn gen_method_item(
     // So we just specify type parameters. In the future, however, we need to
     // add support for const parameters. But those are not remotely stable yet,
     // so we can wait a bit still.
-    let const_params = sig.generics.const_params()
-        .map(|param| {
-            let name = &param.ident;
-            quote! { #name, }
-        });
-
-    let type_params = sig
+    let generic_types = sig
         .generics
-        .type_params()
-        .map(|param| {
-            let name = &param.ident;
-            quote! { #name , }
-        });
-
-    // Const params appear before other generics, so we collect them first
-    let generic_types = const_params
-        .chain(type_params)
+        .params
+        .iter()
+        .filter_map(|param| match param {
+            GenericParam::Type(param) => {
+                let name = &param.ident;
+                Some(quote! { #name , })
+            }
+            GenericParam::Const(param) => {
+                let name = &param.ident;
+                Some(quote! { #name , })
+            }
+            GenericParam::Lifetime(_) => None,
+        })
         .collect::<TokenStream2>();
 
     let generic_types = if generic_types.is_empty() {
@@ -812,7 +814,9 @@ fn check_receiver_compatible(
 /// Generates a list of comma-separated arguments used to call the function.
 /// Currently, only simple names are valid and more complex pattern will lead
 /// to an error being emitted. `self` parameters are ignored.
-fn get_arg_list<'a>(original_inputs: impl Iterator<Item = &'a FnArg>) -> (Punctuated<FnArg, Token![,]>, TokenStream2) {
+fn get_arg_list<'a>(
+    original_inputs: impl Iterator<Item = &'a FnArg>,
+) -> (Punctuated<FnArg, Token![,]>, TokenStream2) {
     let mut args = TokenStream2::new();
     let mut inputs = Punctuated::new();
 

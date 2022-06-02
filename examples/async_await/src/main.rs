@@ -1,5 +1,5 @@
-use std::time::Duration;
 use async_std::task;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use auto_impl::auto_impl;
