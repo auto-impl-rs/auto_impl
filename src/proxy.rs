@@ -18,10 +18,7 @@ pub(crate) enum ProxyType {
 
 impl ProxyType {
     pub(crate) fn is_fn(&self) -> bool {
-        match *self {
-            ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce => true,
-            _ => false,
-        }
+        matches!(*self, ProxyType::Fn | ProxyType::FnMut | ProxyType::FnOnce)
     }
 }
 
@@ -48,10 +45,8 @@ pub(crate) fn parse_types(args: TokenStream) -> Vec<ProxyType> {
         // If the next token is a comma, we eat it (trailing commas are
         // allowed). If not, nothing happens (in this case, it's probably the
         // end of the stream, otherwise an error will occur later).
-        let comma_next = match iter.peek() {
-            Some(TokenTree::Punct(punct)) if punct.as_char() == ',' => true,
-            _ => false,
-        };
+        let comma_next =
+            matches!(iter.peek(), Some(TokenTree::Punct(punct)) if punct.as_char() == ',');
 
         if comma_next {
             let _ = iter.next();
@@ -108,10 +103,8 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             }
 
             // Check if the next token is `mut`. If not, we will ignore it.
-            let is_mut_next = match iter.peek() {
-                Some(TokenTree::Ident(id)) if id.to_string() == "mut" => true,
-                _ => false,
-            };
+            let is_mut_next =
+                matches!(iter.peek(), Some(TokenTree::Ident(id)) if id.to_string() == "mut");
 
             if is_mut_next {
                 // Eat `mut`

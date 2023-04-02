@@ -48,6 +48,7 @@ fn show_first(c: impl DisplayCollection) {
     }
 }
 
+#[allow(clippy::needless_borrow)]
 #[rustfmt::skip]
 fn main() {
     let v = vec!["dog", "cat"];
