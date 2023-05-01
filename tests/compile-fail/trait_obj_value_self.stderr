@@ -1,11 +1,12 @@
 error[E0277]: the size for values of type `dyn Trait` cannot be known at compilation time
-  --> tests/compile-fail/trait_obj_value_self.rs:12:5
+  --> tests/compile-fail/trait_obj_value_self.rs:12:19
    |
 12 |     assert_impl::<Box<dyn Trait>>();
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+   |                   ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
    |
    = help: the trait `Sized` is not implemented for `dyn Trait`
-note: required because of the requirements on the impl of `Trait` for `Box<dyn Trait>`
+   = help: the trait `Trait` is implemented for `Box<T>`
+note: required for `Box<dyn Trait>` to implement `Trait`
   --> tests/compile-fail/trait_obj_value_self.rs:4:1
    |
 4  | #[auto_impl(Box)]

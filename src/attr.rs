@@ -31,7 +31,7 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
             };
 
             // Make sure non-methods do not have our attributes.
-            if !is_method && attrs.iter().any(|a| is_our_attr(a)) {
+            if !is_method && attrs.iter().any(is_our_attr) {
                 emit_error!(
                     item_span,
                     "`#[auto_impl]` attributes are only allowed on methods",

@@ -611,11 +611,11 @@ fn gen_method_item(
 
     // Determine the kind of the method, determined by the self type.
     let sig = &item.sig;
-    let self_arg = SelfType::from_sig(&sig);
+    let self_arg = SelfType::from_sig(sig);
     let attrs = filter_attrs(&item.attrs);
 
     // Check self type and proxy type combination
-    check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span().into());
+    check_receiver_compatible(proxy_type, self_arg, &trait_def.ident, sig.span());
 
     // Generate the list of argument used to call the method.
     let (inputs, args) = get_arg_list(sig.inputs.iter());
@@ -878,7 +878,7 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool 
         .attrs
         .iter()
         .filter(|attr| is_our_attr(attr))
-        .filter_map(|attr| parse_our_attr(&attr).ok());
+        .filter_map(|attr| parse_our_attr(attr).ok());
 
     // Check the first (and hopefully only) `keep_default_for` attribute.
     let out = match it.next() {

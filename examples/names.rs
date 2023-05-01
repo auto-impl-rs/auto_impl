@@ -45,6 +45,7 @@ struct F {}
 struct G<T>(Vec<T>);
 struct H {}
 
+#[allow(clippy::extra_unused_lifetimes, clippy::let_unit_value, clippy::redundant_allocation)]
 #[auto_impl(&)]
 trait U<'a, V> {
     const W: Option<Box<&'static X>>;

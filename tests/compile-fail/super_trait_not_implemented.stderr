@@ -6,13 +6,14 @@ error[E0277]: the trait bound `Box<Dog>: Supi` is not satisfied
    |     |
    |     required by a bound introduced by this call
    |
-note: required because of the requirements on the impl of `Foo` for `Box<Dog>`
+   = help: the trait `Supi` is implemented for `Dog`
+note: required for `Box<Dog>` to implement `Foo`
   --> tests/compile-fail/super_trait_not_implemented.rs:5:1
    |
 5  | #[auto_impl(Box, &)]
    | ^^^^^^^^^^^^^^^^^^^^
 6  | trait Foo: Supi {}
-   |       ^^^
+   |       ^^^  ---- unsatisfied trait bound introduced here
 note: required by a bound in `requires_foo`
   --> tests/compile-fail/super_trait_not_implemented.rs:14:20
    |
