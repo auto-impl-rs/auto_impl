@@ -35,7 +35,9 @@ pub(crate) fn gen_impls(proxy_types: &[ProxyType], trait_def: &syn::ItemTrait) -
             });
         } else {
             tokens.append_all(quote! {
-                #header { #( #items )* }
+                const _: () = {
+                    #header { #( #items )* }
+                };
             });
         }
     }
