@@ -270,7 +270,7 @@ fn gen_header(
 
         if !trait_def.supertraits.is_empty() {
             let supertraits = &trait_def.supertraits;
-            out.extend(quote! { #self_ty: #supertraits, });
+            out.extend(quote! { #proxy_ty_param: #supertraits, });
         }
         if let Some(predicates) = where_clause.map(|c| &c.predicates) {
             out.extend(predicates.into_token_stream());
