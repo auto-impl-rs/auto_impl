@@ -6,7 +6,7 @@ use proc_macro_error::{abort, emit_error};
 use syn::{
     spanned::Spanned,
     visit_mut::{visit_item_trait_mut, VisitMut},
-    Attribute, TraitItem,
+    Attribute, Meta, TraitItem,
 };
 
 use crate::proxy::{parse_types, ProxyType};
@@ -19,7 +19,7 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
         fn visit_trait_item_mut(&mut self, item: &mut TraitItem) {
             let item_span = item.span();
             let (attrs, is_method) = match item {
-                TraitItem::Method(m) => (&mut m.attrs, true),
+                TraitItem::Fn(m) => (&mut m.attrs, true),
                 TraitItem::Const(c) => (&mut c.attrs, false),
                 TraitItem::Type(t) => (&mut t.attrs, false),
                 TraitItem::Macro(m) => (&mut m.attrs, false),
@@ -48,7 +48,7 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
 /// Checks if the given attribute is "our" attribute. That means that it's path
 /// is `auto_impl`.
 pub(crate) fn is_our_attr(attr: &Attribute) -> bool {
-    attr.path.is_ident("auto_impl")
+    attr.path().is_ident("auto_impl")
 }
 
 /// Tries to parse the given attribute as one of our own `auto_impl`
@@ -61,15 +61,10 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     // Get the body of the attribute (which has to be a ground, because we
     // required the syntax `auto_impl(...)` and forbid stuff like
     // `auto_impl = ...`).
-    let tokens = attr.tokens.clone().into_iter().collect::<Vec<_>>();
-    let body = match &*tokens {
-        [TokenTree::Group(g)] => g.stream(),
+    let body = match &attr.meta {
+        Meta::List(list) => list.tokens.clone(),
         _ => {
-            emit_error!(
-                attr.tokens.span(),
-                "expected single group delimited by `()`, found '{:?}'",
-                tokens,
-            );
+            emit_error!(attr.span(), "expected single group delimited by `()`");
             return Err(());
         }
     };
@@ -84,7 +79,7 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
             return Err(());
         }
         None => {
-            emit_error!(attr.tokens.span(), "expected ident, found nothing");
+            emit_error!(attr.span(), "expected ident, found nothing");
             return Err(());
         }
     };

@@ -4,8 +4,7 @@ use quote::{ToTokens, TokenStreamExt};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Attribute, FnArg, GenericParam, Ident, ItemTrait,
     Lifetime, Pat, PatIdent, PatType, ReturnType, Signature, Token, TraitBound, TraitBoundModifier,
-    TraitItem, TraitItemConst, TraitItemMethod, TraitItemType, Type, TypeParamBound,
-    WherePredicate,
+    TraitItem, TraitItemConst, TraitItemFn, TraitItemType, Type, TypeParamBound, WherePredicate,
 };
 
 use crate::{
@@ -78,7 +77,7 @@ fn gen_header(
             .iter()
             // Only interested in methods
             .filter_map(|item| {
-                if let TraitItem::Method(m) = item {
+                if let TraitItem::Fn(m) = item {
                     Some(m)
                 } else {
                     None
@@ -163,7 +162,7 @@ fn gen_header(
             .iter()
             // Only interested in methods
             .filter_map(|item| {
-                if let TraitItem::Method(m) = item {
+                if let TraitItem::Fn(m) = item {
                     Some(m)
                 } else {
                     None
@@ -204,7 +203,7 @@ fn gen_header(
                         // `self.field` is always `: 'a` if `Self: 'a`.
                         match b {
                             TypeParamBound::Trait(t) => Some(t),
-                            TypeParamBound::Lifetime(_) => None,
+                            _ => None,
                         }
                     })
             });
@@ -296,7 +295,7 @@ fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> Token
     // Only traits with exactly one method can be implemented for Fn-traits.
     // Associated types and consts are also not allowed.
     let method = trait_def.items.get(0).and_then(|item| {
-        if let TraitItem::Method(m) = item {
+        if let TraitItem::Fn(m) = item {
             Some(m)
         } else {
             None
@@ -475,7 +474,7 @@ fn gen_items(
                 TraitItem::Const(c) => {
                     gen_const_item(proxy_type, c, trait_def, proxy_ty_param).ok()
                 }
-                TraitItem::Method(method) => {
+                TraitItem::Fn(method) => {
                     gen_method_item(proxy_type, method, trait_def, proxy_ty_param).ok()
                 }
                 TraitItem::Type(ty) => {
@@ -591,7 +590,7 @@ fn gen_type_item(
 /// immediately emitted and `Err(())` is returned.
 fn gen_method_item(
     proxy_type: &ProxyType,
-    item: &TraitItemMethod,
+    item: &TraitItemFn,
     trait_def: &ItemTrait,
     proxy_ty_param: &Ident,
 ) -> Result<TokenStream2, ()> {
@@ -874,7 +873,7 @@ fn get_arg_list<'a>(
 
 /// Checks if the given method has the attribute `#[auto_impl(keep_default_for(...))]`
 /// and if it contains the given proxy type.
-fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool {
+fn should_keep_default_for(m: &TraitItemFn, proxy_type: &ProxyType) -> bool {
     // Get an iterator of just the attribute we are interested in.
     let mut it = m
         .attrs
@@ -908,7 +907,7 @@ fn should_keep_default_for(m: &TraitItemMethod, proxy_type: &ProxyType) -> bool 
 fn filter_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
     attrs
         .iter()
-        .filter(|attr| attr.path.is_ident("cfg"))
+        .filter(|attr| attr.path().is_ident("cfg"))
         .cloned()
         .collect()
 }
