@@ -294,7 +294,7 @@ fn gen_header(
 fn gen_fn_type_for_trait(proxy_type: &ProxyType, trait_def: &ItemTrait) -> TokenStream2 {
     // Only traits with exactly one method can be implemented for Fn-traits.
     // Associated types and consts are also not allowed.
-    let method = trait_def.items.get(0).and_then(|item| {
+    let method = trait_def.items.first().and_then(|item| {
         if let TraitItem::Fn(m) = item {
             Some(m)
         } else {
