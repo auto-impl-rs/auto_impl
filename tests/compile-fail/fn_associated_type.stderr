@@ -1,14 +1,36 @@
 error: this trait cannot be auto-implemented for Fn-traits (only traits with exactly one method and no other items are allowed)
  --> tests/compile-fail/fn_associated_type.rs:5:1
   |
-5 | trait Foo {
-  | ^^^^^
+5 | / trait Foo {
+6 | |     type Out;
+7 | |
+8 | |     fn a(&self);
+9 | | }
+  | |_^
 
 error: the trait `Foo` cannot be auto-implemented for Fn-traits, because it has associated types
-
-         = note: only traits with a single method can be implemented for Fn-traits
-
  --> tests/compile-fail/fn_associated_type.rs:6:5
   |
 6 |     type Out;
-  |     ^^^^
+  |     ^^^^^^^^^
+  |
+  = note: only traits with a single method can be implemented for Fn-traits
+
+error[E0046]: not all trait items implemented, missing: `Out`
+ --> tests/compile-fail/fn_associated_type.rs:4:1
+  |
+4 | #[auto_impl(Fn)]
+  | ^^^^^^^^^^^^^^^^ missing `Out` in implementation
+5 | trait Foo {
+6 |     type Out;
+  |     -------- `Out` from trait
+  |
+  = note: this error originates in the attribute macro `auto_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0618]: expected function, found `&T`
+ --> tests/compile-fail/fn_associated_type.rs:4:1
+  |
+4 | #[auto_impl(Fn)]
+  | ^^^^^^^^^^^^^^^^ call expression requires function
+  |
+  = note: this error originates in the attribute macro `auto_impl` (in Nightly builds, run with -Z macro-backtrace for more info)

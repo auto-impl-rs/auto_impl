@@ -576,9 +576,10 @@ fn gen_type_item(
     // We simply use the associated type from our type parameter.
     let assoc_name = &item.ident;
     let attrs = filter_attrs(&item.attrs);
+    let generics = &item.generics;
 
     Ok(quote! {
-        #(#attrs)* type #assoc_name = #proxy_ty_param::#assoc_name;
+        #(#attrs)* type #assoc_name #generics = #proxy_ty_param::#assoc_name #generics;
     })
 }
 
