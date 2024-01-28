@@ -4,11 +4,10 @@ error: the trait 'Greeter' cannot be implemented for Fn-traits: generic argument
 7 |     fn greet<T: Display>(&self, name: T);
   |              ^^^^^^^^^^
 
-error[E0412]: cannot find type `T` in this scope
- --> tests/compile-fail/fn_generics.rs:7:39
+warning: unused import: `std::fmt::Display`
+ --> tests/compile-fail/fn_generics.rs:1:5
   |
-5 | #[auto_impl(Fn)]
-  | ---------------- similarly named type parameter `U` defined here
-6 | trait Greeter {
-7 |     fn greet<T: Display>(&self, name: T);
-  |                                       ^ help: a type parameter with a similar name exists: `U`
+1 | use std::fmt::Display;
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default

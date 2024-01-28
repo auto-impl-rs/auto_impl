@@ -2,19 +2,18 @@
 //! attached to trait items.
 
 use proc_macro2::{Delimiter, TokenTree};
-use proc_macro_error::{abort, emit_error};
 use syn::{
     spanned::Spanned,
     visit_mut::{visit_item_trait_mut, VisitMut},
-    Attribute, Meta, TraitItem,
+    Attribute, Error, Meta, TraitItem,
 };
 
 use crate::proxy::{parse_types, ProxyType};
 
 /// Removes all `#[auto_impl]` attributes that are attached to methods of the
 /// given trait.
-pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
-    struct AttrRemover;
+pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) -> syn::Result<()> {
+    struct AttrRemover(syn::Result<()>);
     impl VisitMut for AttrRemover {
         fn visit_trait_item_mut(&mut self, item: &mut TraitItem) {
             let item_span = item.span();
@@ -23,26 +22,46 @@ pub(crate) fn remove_our_attrs(trait_def: &mut syn::ItemTrait) {
                 TraitItem::Const(c) => (&mut c.attrs, false),
                 TraitItem::Type(t) => (&mut t.attrs, false),
                 TraitItem::Macro(m) => (&mut m.attrs, false),
-                _ => abort!(
-                    item.span(),
-                    "encountered unexpected `TraitItem`, cannot handle that, sorry!";
-                    note = "auto-impl supports only methods, consts, types and macros currently";
-                ),
+                _ => {
+                    let err = syn::Error::new(
+                        item.span(),
+                        "encountered unexpected `TraitItem`, cannot handle that, sorry!",
+                    );
+
+                    if let Err(ref mut current_err) = self.0 {
+                        current_err.combine(err);
+                    } else {
+                        self.0 = Err(err);
+                    };
+
+                    return;
+                }
             };
 
             // Make sure non-methods do not have our attributes.
             if !is_method && attrs.iter().any(is_our_attr) {
-                emit_error!(
+                let err = syn::Error::new(
                     item_span,
                     "`#[auto_impl]` attributes are only allowed on methods",
                 );
+
+                if let Err(ref mut current_err) = self.0 {
+                    current_err.combine(err);
+                } else {
+                    self.0 = Err(err);
+                };
+
+                return;
             }
 
             attrs.retain(|a| !is_our_attr(a));
         }
     }
 
-    visit_item_trait_mut(&mut AttrRemover, trait_def);
+    let mut visitor = AttrRemover(Ok(()));
+    visit_item_trait_mut(&mut visitor, trait_def);
+
+    visitor.0
 }
 
 /// Checks if the given attribute is "our" attribute. That means that it's path
@@ -55,7 +74,7 @@ pub(crate) fn is_our_attr(attr: &Attribute) -> bool {
 /// attributes. If it's invalid, an error is emitted and `Err(())` is returned.
 /// You have to make sure that `attr` is one of our attrs with `is_our_attr`
 /// before calling this function!
-pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
+pub(crate) fn parse_our_attr(attr: &Attribute) -> syn::Result<OurAttr> {
     assert!(is_our_attr(attr));
 
     // Get the body of the attribute (which has to be a ground, because we
@@ -64,8 +83,10 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     let body = match &attr.meta {
         Meta::List(list) => list.tokens.clone(),
         _ => {
-            emit_error!(attr.span(), "expected single group delimited by `()`");
-            return Err(());
+            return Err(Error::new(
+                attr.span(),
+                "expected single group delimited by `()`",
+            ));
         }
     };
 
@@ -75,12 +96,13 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     let name = match it.next() {
         Some(TokenTree::Ident(x)) => x,
         Some(other) => {
-            emit_error!(other.span(), "expected ident, found '{}'", other);
-            return Err(());
+            return Err(Error::new(
+                other.span(),
+                format_args!("expected ident, found '{}'", other),
+            ));
         }
         None => {
-            emit_error!(attr.span(), "expected ident, found nothing");
-            return Err(());
+            return Err(Error::new(attr.span(), "expected ident, found nothing"));
         }
     };
 
@@ -89,21 +111,22 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
     let params = match it.next() {
         Some(TokenTree::Group(ref g)) if g.delimiter() == Delimiter::Parenthesis => g.stream(),
         Some(other) => {
-            emit_error!(
+            return Err(Error::new(
                 other.span(),
-                "expected arguments for '{}' in parenthesis `()`, found `{}`",
-                name,
-                other,
-            );
-            return Err(());
+                format_args!(
+                    "expected arguments for '{}' in parenthesis `()`, found `{}`",
+                    name, other
+                ),
+            ));
         }
         None => {
-            emit_error!(
+            return Err(Error::new(
                 body.span(),
-                "expected arguments for '{}' in parenthesis `()`, found nothing",
-                name,
-            );
-            return Err(());
+                format_args!(
+                    "expected arguments for '{}' in parenthesis `()`, found nothing",
+                    name,
+                ),
+            ));
         }
     };
 
@@ -112,11 +135,13 @@ pub(crate) fn parse_our_attr(attr: &Attribute) -> Result<OurAttr, ()> {
         let proxy_types = parse_types(params.into());
         OurAttr::KeepDefaultFor(proxy_types)
     } else {
-        emit_error!(
-            name.span(), "invalid attribute '{}'", name;
-            note = "only `keep_default_for` is supported";
-        );
-        return Err(());
+        return Err(Error::new(
+            name.span(),
+            format_args!(
+                "invalid attribute '{}'; only `keep_default_for` is supported",
+                name
+            ),
+        ));
     };
 
     Ok(out)

@@ -6,11 +6,3 @@ error: this trait cannot be auto-implemented for Fn-traits (only traits with exa
 7 | |     fn b(&self);
 8 | | }
   | |_^
-
-error[E0618]: expected function, found `&T`
- --> tests/compile-fail/fn_multiple_methods.rs:4:1
-  |
-4 | #[auto_impl(Fn)]
-  | ^^^^^^^^^^^^^^^^ call expression requires function
-  |
-  = note: this error originates in the attribute macro `auto_impl` (in Nightly builds, run with -Z macro-backtrace for more info)

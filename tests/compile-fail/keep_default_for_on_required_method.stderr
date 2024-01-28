@@ -3,14 +3,3 @@ error: the method `required` has the attribute `keep_default_for` but is not a d
   |
 7 |     fn required(&self);
   |     ^^^^^^^^^^^^^^^^^^
-
-error[E0046]: not all trait items implemented, missing: `required`
- --> tests/compile-fail/keep_default_for_on_required_method.rs:4:1
-  |
-4 | #[auto_impl(&)]
-  | ^^^^^^^^^^^^^^^ missing `required` in implementation
-...
-7 |     fn required(&self);
-  |     ------------------- `required` from trait
-  |
-  = note: this error originates in the attribute macro `auto_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
