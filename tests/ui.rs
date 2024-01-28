@@ -6,6 +6,7 @@ fn ui_compile_pass() {
     t.pass("tests/compile-pass/*.rs");
 }
 
+#[rustversion::nightly]
 #[test]
 fn ui_compile_fail() {
     let t = TestCases::new();
