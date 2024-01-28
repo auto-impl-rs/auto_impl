@@ -1,5 +1,5 @@
-use proc_macro_error::emit_error;
 use std::iter::Peekable;
+use syn::Error;
 
 use crate::proc_macro::{token_stream, TokenStream, TokenTree};
 
@@ -58,7 +58,7 @@ pub(crate) fn parse_types(args: TokenStream) -> Vec<ProxyType> {
 
 /// Parses one `ProxyType` from the given token iterator. The iterator must not
 /// be empty!
-fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()> {
+fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> syn::Result<ProxyType> {
     #[rustfmt::skip]
     const NOTE_TEXT: &str = "\
         attribute format should be `#[auto_impl(<types>)]` where `<types>` is \
@@ -71,35 +71,29 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
     // non-empty.
     let ty = match iter.next().unwrap() {
         TokenTree::Group(group) => {
-            emit_error!(
-                group.span(),
-                "unexpected group, {}", EXPECTED_TEXT;
-                note = NOTE_TEXT;
-            );
-
-            return Err(());
+            return Err(Error::new(
+                group.span().into(),
+                format_args!("unexpected group, {}\n{}", EXPECTED_TEXT, NOTE_TEXT),
+            ));
         }
 
         TokenTree::Literal(lit) => {
-            emit_error!(
-                lit.span(),
-                "unexpected literal, {}", EXPECTED_TEXT;
-                note = NOTE_TEXT;
-            );
-
-            return Err(());
+            return Err(Error::new(
+                lit.span().into(),
+                format_args!("unexpected literal, {}\n{}", EXPECTED_TEXT, NOTE_TEXT),
+            ));
         }
 
         TokenTree::Punct(punct) => {
             // Only '&' are allowed. Everything else leads to an error.
             if punct.as_char() != '&' {
-                emit_error!(
-                    punct.span(),
-                    "unexpected punctuation '{}', {}", punct, EXPECTED_TEXT;
-                    note = NOTE_TEXT;
-                );
-
-                return Err(());
+                return Err(Error::new(
+                    punct.span().into(),
+                    format_args!(
+                        "unexpected punctuation '{}', {}\n{}",
+                        punct, EXPECTED_TEXT, NOTE_TEXT
+                    ),
+                ));
             }
 
             // Check if the next token is `mut`. If not, we will ignore it.
@@ -123,12 +117,10 @@ fn eat_type(iter: &mut Peekable<token_stream::IntoIter>) -> Result<ProxyType, ()
             "FnMut" => ProxyType::FnMut,
             "FnOnce" => ProxyType::FnOnce,
             _ => {
-                emit_error!(
-                    ident.span(),
-                    "unexpected '{}', {}", ident, EXPECTED_TEXT;
-                    note = NOTE_TEXT;
-                );
-                return Err(());
+                return Err(Error::new(
+                    ident.span().into(),
+                    format_args!("unexpected '{}', {}\n{}", ident, EXPECTED_TEXT, NOTE_TEXT),
+                ));
             }
         },
     };

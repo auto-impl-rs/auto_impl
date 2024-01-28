@@ -208,9 +208,6 @@ extern crate proc_macro;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use proc_macro_error::{abort_call_site, proc_macro_error, set_dummy};
-use quote::ToTokens;
 
 mod analyze;
 mod attr;
@@ -218,44 +215,29 @@ mod gen;
 mod proxy;
 
 /// See crate documentation for more information.
-#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn auto_impl(args: TokenStream, input: TokenStream) -> TokenStream {
-    // Make sure that we emit a dummy in case of error
-    let input: TokenStream2 = input.into();
-    set_dummy(input.clone());
+    match auto_impl2(args, input.into()) {
+        Ok(tokens) => tokens.into(),
+        Err(e) => e.into_compile_error().into(),
+    }
+}
 
+fn auto_impl2(
+    args: TokenStream,
+    input: proc_macro2::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     // Try to parse the token stream from the attribute to get a list of proxy
     // types.
     let proxy_types = proxy::parse_types(args);
 
-    match syn::parse2::<syn::ItemTrait>(input) {
-        // The attribute was applied to a valid trait. Now it's time to execute
-        // the main step: generate a token stream which contains an impl of the
-        // trait for each proxy type.
-        Ok(mut trait_def) => {
-            let generated = gen::gen_impls(&proxy_types, &trait_def);
+    let mut trait_def = syn::parse2::<syn::ItemTrait>(input)?;
 
-            // Before returning the trait definition, we have to remove all
-            // `#[auto_impl(...)]` attributes on all methods.
-            attr::remove_our_attrs(&mut trait_def);
+    let generated = gen::gen_impls(&proxy_types, &trait_def)?;
 
-            // We emit modified input instead of the original one
-            // since it's better to remove our attributes even in case of error
-            set_dummy(trait_def.to_token_stream());
+    // Before returning the trait definition, we have to remove all
+    // `#[auto_impl(...)]` attributes on all methods.
+    attr::remove_our_attrs(&mut trait_def)?;
 
-            quote!(#trait_def #generated).into()
-        }
-
-        // If the token stream could not be parsed as trait, this most
-        // likely means that the attribute was applied to a non-trait item.
-        // Even if the trait definition was syntactically incorrect, the
-        // compiler usually does some kind of error recovery to proceed. We
-        // get the recovered tokens.
-        Err(e) => abort_call_site!(
-            "couldn't parse trait item";
-            note = e;
-            note = "the #[auto_impl] attribute can only be applied to traits!";
-        ),
-    }
+    Ok(quote!(#trait_def #generated))
 }
