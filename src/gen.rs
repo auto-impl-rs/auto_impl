@@ -366,21 +366,35 @@ fn gen_fn_type_for_trait(
 
     // Function traits cannot support generics in their arguments
     // These would require HRTB for types instead of just lifetimes
+    let mut r: syn::Result<()> = Ok(());
     for type_param in sig.generics.type_params() {
-        return Err(Error::new(
+        let err = Error::new(
             type_param.span(),
             format_args!("the trait '{}' cannot be implemented for Fn-traits: generic arguments are not allowed",
             trait_def.ident),
-        ));
+        );
+
+        if let Err(ref mut current_err) = r {
+            current_err.combine(err);
+        } else {
+            r = Err(err);
+        }
     }
 
     for const_param in sig.generics.const_params() {
-        return Err(Error::new(
+        let err = Error::new(
             const_param.span(),
             format_args!("the trait '{}' cannot be implemented for Fn-traits: constant arguments are not allowed",
             trait_def.ident),
-        ));
+        );
+
+        if let Err(ref mut current_err) = r {
+            current_err.combine(err);
+        } else {
+            r = Err(err);
+        }
     }
+    r?;
 
     // =======================================================================
     // Check if the trait can be implemented for the given proxy type
@@ -888,7 +902,7 @@ fn should_keep_default_for(m: &TraitItemFn, proxy_type: &ProxyType) -> syn::Resu
         .attrs
         .iter()
         .filter(|attr| is_our_attr(attr))
-        .map(|attr| parse_our_attr(attr));
+        .map(parse_our_attr);
 
     // Check the first (and hopefully only) `keep_default_for` attribute.
     let out = match it.next() {
