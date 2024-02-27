@@ -706,29 +706,31 @@ fn gen_method_item(
     // Generate the body of the function. This mainly depends on the self type,
     // but also on the proxy type.
     let fn_name = &sig.ident;
+    let await_token = sig.asyncness.map(|_| quote! { .await });
+
     let body = match self_arg {
         // Fn proxy types get a special treatment
         _ if proxy_type.is_fn() => {
-            quote! { ({self})(#args) }
+            quote! { ({self})(#args) #await_token }
         }
 
         // No receiver
         SelfType::None => {
             // The proxy type is a reference, smart pointer or Box.
-            quote! { #proxy_ty_param::#fn_name #generic_types(#args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(#args) #await_token }
         }
 
         // Receiver `self` (by value)
         SelfType::Value => {
             // The proxy type is a Box.
-            quote! { #proxy_ty_param::#fn_name #generic_types(*self, #args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(*self, #args) #await_token }
         }
 
         // `&self` or `&mut self` receiver
         SelfType::Ref | SelfType::Mut => {
             // The proxy type could be anything in the `Ref` case, and `&mut`
             // or Box in the `Mut` case.
-            quote! { #proxy_ty_param::#fn_name #generic_types(self, #args) }
+            quote! { #proxy_ty_param::#fn_name #generic_types(self, #args) #await_token }
         }
     };
 
