@@ -1,5 +1,6 @@
 use auto_impl::auto_impl;
 
+#[auto_impl(Box, &)]
 trait Supi<'a, T> {
     fn supi(&self);
 }
