@@ -249,13 +249,14 @@ fn gen_header(
 
         // Pop a trailing comma if there is one
         // We'll end up conditionally putting one back in shortly
-        if tts.last().and_then(|tt|
+        if tts.last().and_then(|tt| {
             if let TokenTree2::Punct(p) = tt {
                 Some(p.as_char())
             } else {
                 None
             }
-        ) == Some(',') {
+        }) == Some(',')
+        {
             tts.pop();
         }
 
