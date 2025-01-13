@@ -1,4 +1,4 @@
-use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use proc_macro2::{Span as Span2, TokenStream as TokenStream2, TokenTree as TokenTree2};
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Attribute, Error, FnArg, GenericParam, Ident,
@@ -246,6 +246,19 @@ fn gen_header(
             .skip(1) // the opening `<`
             .collect::<Vec<_>>();
         tts.pop(); // the closing `>`
+
+        // Pop a trailing comma if there is one
+        // We'll end up conditionally putting one back in shortly
+        if tts.last().and_then(|tt|
+            if let TokenTree2::Punct(p) = tt {
+                Some(p.as_char())
+            } else {
+                None
+            }
+        ) == Some(',') {
+            tts.pop();
+        }
+
         params.append_all(&tts);
 
         // Append proxy type parameter (if there aren't any parameters so far,
