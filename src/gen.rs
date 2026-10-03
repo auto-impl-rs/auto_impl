@@ -2,8 +2,8 @@ use proc_macro2::{Span as Span2, TokenStream as TokenStream2, TokenTree as Token
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Attribute, Error, FnArg, GenericParam, Ident,
-    ItemTrait, Lifetime, Pat, PatIdent, PatType, ReturnType, Signature, Token, TraitBound,
-    TraitBoundModifier, TraitItem, TraitItemConst, TraitItemFn, TraitItemType, Type,
+    ItemTrait, Lifetime, Pat, PatIdent, PatType, Receiver, ReceiverKind, ReturnType, Safety,
+    Signature, Token, TraitBound, TraitItem, TraitItemConst, TraitItemFn, TraitItemType, Type,
     TypeParamBound, WherePredicate,
 };
 
@@ -114,10 +114,8 @@ fn gen_header(
                             // Check if the bound contains `Sized`
                             pred.bounds.iter().any(|b| match b {
                                 TypeParamBound::Trait(TraitBound {
-                                    modifier: TraitBoundModifier::None,
-                                    path,
-                                    ..
-                                }) => path.is_ident("Sized"),
+                                    modifiers, path, ..
+                                }) if modifiers.require_empty().is_ok() => path.is_ident("Sized"),
                                 _ => false,
                             })
                         }
@@ -127,10 +125,13 @@ fn gen_header(
 
             // Check if the first parameter is `self` by value. In that
             // case, we might require `Self` to be `Sized`.
-            let self_value_param = match m.sig.inputs.first() {
-                Some(FnArg::Receiver(receiver)) => receiver.reference.is_none(),
-                _ => false,
-            };
+            let self_value_param = matches!(
+                m.sig.inputs.first(),
+                Some(FnArg::Receiver(Receiver {
+                    kind: ReceiverKind::Value,
+                    ..
+                }))
+            );
 
             // Check if return type is `Self`
             let self_value_return = match &m.sig.output {
@@ -357,7 +358,7 @@ fn gen_fn_type_for_trait(
         ));
     }
 
-    if let Some(unsafe_token) = &sig.unsafety {
+    if let Safety::Unsafe(unsafe_token) = &sig.safety {
         return Err(Error::new(
             unsafe_token.span(),
             format_args!(
@@ -662,7 +663,7 @@ fn gen_method_item(
     let sig = Signature {
         constness: item.sig.constness,
         asyncness: item.sig.asyncness,
-        unsafety: item.sig.unsafety,
+        safety: item.sig.safety.clone(),
         abi: item.sig.abi.clone(),
         fn_token: item.sig.fn_token,
         ident: item.sig.ident.clone(),
@@ -763,15 +764,18 @@ enum SelfType {
 impl SelfType {
     fn from_sig(sig: &Signature) -> Self {
         match sig.inputs.iter().next() {
-            Some(FnArg::Receiver(r)) => {
-                if r.reference.is_none() {
-                    SelfType::Value
-                } else if r.mutability.is_none() {
-                    SelfType::Ref
-                } else {
-                    SelfType::Mut
-                }
-            }
+            Some(FnArg::Receiver(Receiver {
+                kind: ReceiverKind::Value,
+                ..
+            })) => SelfType::Value,
+            Some(FnArg::Receiver(Receiver {
+                kind: ReceiverKind::Reference(_, _, None),
+                ..
+            })) => SelfType::Ref,
+            Some(FnArg::Receiver(Receiver {
+                kind: ReceiverKind::Reference(_, _, Some(_)),
+                ..
+            })) => SelfType::Mut,
             _ => SelfType::None,
         }
     }

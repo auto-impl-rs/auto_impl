@@ -5,7 +5,7 @@ some common smart pointers and closures.
 
 # Usage
 
-This library requires Rust 1.56.0 or newer. This library doesn't leave any public API in your code.
+This library requires Rust 1.71.0 or newer. This library doesn't leave any public API in your code.
 
 Add `auto_impl` to your `Cargo.toml` and just use it in your crate:
 
@@ -36,13 +36,13 @@ requires_foo(&0i32); // works: through the generated impl
 requires_foo(Box::new(0i32)); // works: through the generated impl
 ```
 
-For more explanations, please see [**the documentation**](https://docs.rs/auto_impl) and for more examples, see 
+For more explanations, please see [**the documentation**](https://docs.rs/auto_impl) and for more examples, see
 [the examples folder](https://github.com/auto-impl-rs/auto_impl/tree/master/examples).
 
 # Alternatives
 
-This library implements a fraction of a very broad and complex usecase. It's mostly useful for applications that 
-define traits for components, and want to be able to abstract over the storage for those traits. If it doesn't offer 
+This library implements a fraction of a very broad and complex usecase. It's mostly useful for applications that
+define traits for components, and want to be able to abstract over the storage for those traits. If it doesn't offer
 some functionality you need, check out the [`impl-tools`](https://github.com/kas-gui/impl-tools/) project.
 
 ---
