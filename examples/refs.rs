@@ -25,16 +25,12 @@ use auto_impl::auto_impl;
 /// ```
 #[auto_impl(&, Box)]
 trait DisplayCollection {
-    /// If the length is statically known, this is `Some(len)`.
-    const LEN: Option<usize>;
     type Out: Display;
     fn display_at(&self, index: usize) -> Option<&Self::Out>;
 }
 
 impl<T: Display> DisplayCollection for Vec<T> {
     type Out = T;
-
-    const LEN: Option<usize> = None;
 
     fn display_at(&self, index: usize) -> Option<&Self::Out> {
         self.get(index)
