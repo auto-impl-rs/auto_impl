@@ -9,17 +9,16 @@ env:
 jobs:
   check:
     name: 'Build & test'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         rust-version: ['stable', 'beta', 'nightly', '1.71']
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: stable
         components: rustfmt, clippy
-    - uses: Swatinem/rust-cache@v1
 
     - run: cargo fmt --all -- --check
     - run: cargo clippy --workspace --all-features -- -D warnings
